@@ -1,0 +1,15 @@
+## target files
+*.out
+*.o
+
+## temp files
+*~
+*.swp
+tmp-*
+tmp_*
+
+## macOS
+.DS_Store
+
+## log files
+*.log
