@@ -13,3 +13,7 @@ tmp_*
 
 ## log files
 *.log
+
+## IDE config
+.vscode
+.idea
