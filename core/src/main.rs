@@ -1,8 +1,14 @@
+mod api;
 mod model;
 mod service;
-mod api;
 mod util;
+mod constants;
+
+use util::{config::Config, thread_pool::ThreadPool};
 
 fn main() {
-    println!("Hello, AHUCM OJ core!");
+    // let thread_pool = ThreadPool::default();
+    // let exceutor = Executor::new(1001, 100, 100, "./assets/1001".into());
+    env_logger::init();
+    let _config = Config::new();
 }

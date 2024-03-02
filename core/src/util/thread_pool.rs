@@ -7,6 +7,8 @@ use std::{
     thread,
 };
 
+use crate::service::executor::Executor;
+
 type Thunk<'a> = Box<dyn FnOnce() + Send + 'a>;
 
 struct SharedData {
@@ -81,7 +83,7 @@ impl<'a> Sentinel<'a> {
         }
     }
 
-    pub fn cancel(&self) {
+    pub fn cancel(&mut self) {
         self.active = false;
     }
 }
@@ -108,6 +110,12 @@ pub struct ThreadPool {
     pub shared_data: Arc<SharedData>,
 }
 
+impl Default for ThreadPool {
+    fn default() -> Self {
+        ThreadPool::new(num_cpus::get())
+    }
+}
+
 impl ThreadPool {
     pub fn new(size: usize) -> Self {
         let (sender, receiver) = channel::<Thunk<'static>>();
@@ -126,10 +134,16 @@ impl ThreadPool {
             is_done: AtomicBool::new(false),
         });
 
-        Self {
+        let thread_pool = Self {
             sender,
             shared_data,
+        };
+
+        for i in 0..size {
+            ThreadPool::spawn_thread(i, thread_pool.shared_data.clone());
         }
+
+        thread_pool
     }
 
     pub fn max_thread_count(&self) -> usize {
@@ -198,12 +212,19 @@ impl ThreadPool {
         self.sender.send(Box::new(job)).unwrap();
     }
 
+    pub fn send_executor(&self, mut executor: Executor) {
+        self.send_job(move || {
+            executor.execute();
+            executor.clean();
+        });
+    }
+
     pub fn spawn_thread(id: usize, shared_data: Arc<SharedData>) {
         let builder = thread::Builder::new();
 
         builder
             .spawn(move || {
-                let sentinel = Sentinel::new(id, &shared_data);
+                let mut sentinel = Sentinel::new(id, &shared_data);
 
                 loop {
                     if shared_data.is_done() {
