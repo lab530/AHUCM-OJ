@@ -1,4 +1,4 @@
-use crate::util::comparer::{Comparer, ComparerErrorWrapper};
+use crate::util::comparer::{Comparer, ComparerError, ComparerErrorWrapper};
 
 pub struct Testcase {
     input_path: String,
@@ -36,7 +36,7 @@ impl Testcase {
                 lhs_line,
                 rhs_line,
             }) => {
-                if ComparerError::LineNotEqual == error {
+                if error == ComparerError::LineNotEqual {
                     TestcaseResult::WrongAnswer(line_cnt, lhs_line, rhs_line)
                 } else {
                     TestcaseResult::PresentationError
