@@ -1,9 +1,42 @@
-use std::sync::{
-    atomic::{AtomicU32, AtomicUsize, Ordering},
-    Arc,
+use std::{
+    ffi::CString,
+    fs::{self, File},
+    os::fd::FromRawFd,
+    sync::{
+        atomic::{AtomicU32, AtomicUsize, Ordering},
+        Arc,
+    },
 };
 
+use nix::{
+    libc::{exit, fdopen, freopen, STDERR_FILENO},
+    sys::wait::waitpid,
+    unistd::{execvp, fork, write, ForkResult},
+};
+
+use crate::util::config::GLOB_CONFIG;
+
 use super::testcases_getter::TestcasesGetter;
+
+macro_rules! c_string {
+    ($string:expr) => {
+        CString::new($string).unwrap()
+    };
+}
+
+#[derive(Debug)]
+pub enum CompilationError {
+    Error(String),
+    MissingLang(String),
+    ForkFailed,
+    FileSystemError,
+}
+
+#[derive(Debug)]
+pub enum RunningError {
+    ForkFailed,
+    NonEmptyStderr(String),
+}
 
 pub enum ExecutionResult {
     Halt,
@@ -51,6 +84,8 @@ impl RunContext {
 pub struct Executor {
     source_path: String,
     lang: String,
+    target_path: String,
+    log_path: String,
 
     problem_id: u64,
     mem_limit: u32,
@@ -62,7 +97,7 @@ pub struct Executor {
     is_compiling_done: bool,
     is_running_done: bool,
 
-    run_ctx: Arc<RunContext>,
+    run_ctx: RunContext,
 }
 
 impl Executor {
@@ -78,6 +113,8 @@ impl Executor {
         Self {
             source_path,
             lang,
+            target_path: format!("{}.exe", source_path),
+            log_path: format!("{}.log", source_path),
             problem_id,
             mem_limit,
             time_limit,
@@ -85,13 +122,13 @@ impl Executor {
             submission_id,
             is_compiling_done: false,
             is_running_done: false,
-            run_ctx: Arc::new(RunContext::default()),
+            run_ctx: RunContext::default(),
         }
     }
 
     pub fn execute(&mut self) -> ExecutionResult {
-        if let Some(err_msg) = self.compile() {
-            return ExecutionResult::CompilationError(err_msg);
+        if let Err(e) = self.compile() {
+            return ExecutionResult::CompilationError(format!("{:?}", e));
         }
         self.is_compiling_done = true;
 
@@ -105,7 +142,6 @@ impl Executor {
             self.run(
                 testcase.get_input_path(),
                 testcase.get_output_path(),
-                self.run_ctx.clone(),
             );
         }
 
@@ -140,19 +176,85 @@ impl Executor {
         result
     }
 
-    fn compile(&self) -> Option<String> {
-        // regular POSIX workflow
+    fn compile(&self) -> Result<(), CompilationError> {
+        let command = GLOB_CONFIG
+            .get_compile_command(&self.lang, &self.source_path, &self.target_path)
+            .ok_or(CompilationError::MissingLang(format!(
+                "missing lang `{}`",
+                self.lang
+            )))?
+            .iter()
+            .map(|s| c_string!(s.as_str()))
+            .collect::<Vec<_>>();
 
-        None
+        match unsafe { fork() } {
+            Ok(ForkResult::Parent { child, .. }) => {
+                waitpid(child, None).unwrap();
+            }
+            Ok(ForkResult::Child) => {
+                let log_path = c_string!(self.log_path.as_str());
+                let w_mode = c_string!("w");
+
+                unsafe {
+                    let log_output = fdopen(STDERR_FILENO, w_mode.as_ptr());
+                    freopen(log_path.as_ptr(), w_mode.as_ptr(), log_output);
+                }
+
+                match execvp(&command[0], &command) {
+                    Ok(_) => unreachable!(),
+                    Err(errno) => write(
+                        unsafe { File::from_raw_fd(STDERR_FILENO) },
+                        format!("Execvp error, errno = {:?}\n", errno).as_bytes(),
+                    )
+                    .ok(),
+                };
+
+                unsafe { exit(0) };
+            }
+            _ => return Err(CompilationError::ForkFailed),
+        };
+
+        let log = fs::read_to_string(self.log_path).map_err(|_e| { CompilationError::FileSystemError })?;
+        if log.is_empty() {
+            Ok(())
+        } else {
+            Err(CompilationError::Error(log))
+        }
     }
 
-    fn run(&self, input_path: &str, output_path: &str, ctx: Arc<RunContext>) {
-        // regular POSIX workflow
+    fn run(&self, input_path: &str, output_path: &str) -> Result<(), RunningError>{
+        let command = GLOB_CONFIG
+            .get_compile_command(&self.lang, &self.source_path, &self.target_path)
+            .ok_or(CompilationError::MissingLang(format!(
+                "missing lang `{}`",
+                self.lang
+            )))?
+            .iter()
+            .map(|s| c_string!(s.as_str()))
+            .collect::<Vec<_>>();
+
+        let redirect_stdout_path = format!("{}.stdout", self.source_path);
+        let redirect_stderr_path = format!("{}.stderr", self.source_path);
+
+        match unsafe { fork() } {
+            Ok(ForkResult::Parent{ child, .. }) => {
+                waitpid(child, None).unwrap();
+            },
+            Ok(ForkResult::Child) => {
+                let input_path = c_string!(input_path);
+                let redirect_stdout_path = c_string!(redirect_stdout_path.as_str());
+                let redirect_stderr_path = c_string!(redirect_stderr_path.as_str());
+
+                // TODO:
+            },
+            _ => return Err(RunningError::ForkFailed),
+        };
+
+        Ok(())
     }
 
     fn update_db(&self, execute_result: &ExecutionResult) {
         // TODO: logic for updating db
-    }
 
     pub fn clean(&self) {
         self.after_run_clean();

@@ -3,8 +3,13 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
 };
+use once_cell::sync::Lazy;
 
 use crate::constants::CONFIG_PATH;
+
+pub static GLOB_CONFIG: Lazy<Config> = Lazy::new(|| {
+    Config::new()
+});
 
 #[derive(Debug, Default)]
 pub struct Config {
@@ -103,12 +108,20 @@ impl Config {
                     toml::Value::String(command) => command,
                     _ => return Some(format!("wrong config format, table value should be a string in [run], key = {lang}")),
                 };
-                new_self.run_commands.insert(lang.clone(), command.split_ascii_whitespace().map(|e| e.to_string()).collect());
+                new_self.run_commands.insert(
+                    lang.clone(),
+                    command
+                        .split_ascii_whitespace()
+                        .map(|e| e.to_string())
+                        .collect(),
+                );
             }
         }
         for lang in new_self.support_langs.iter() {
             if !new_self.run_commands.contains_key(lang) {
-                return Some(format!("wrong config format, no run recipe for language {lang}"))
+                return Some(format!(
+                    "wrong config format, no run recipe for language {lang}"
+                ));
             }
         }
 
@@ -119,7 +132,7 @@ impl Config {
         if let toml::Value::Table(channel_list) = channel_list {
             for (lang, channel) in channel_list {
                 if !new_self.support_langs.contains(lang) {
-                    continue
+                    continue;
                 }
                 if new_self.compiler_output_channels.contains_key(lang) {
                     warn!("duplicated key {lang} in [channel]");
@@ -134,7 +147,9 @@ impl Config {
                 let mut inserted = false;
                 for support_channel in SUPPORT_CHANNELS {
                     if channel == support_channel {
-                        new_self.compiler_output_channels.insert(lang.clone(), support_channel);
+                        new_self
+                            .compiler_output_channels
+                            .insert(lang.clone(), support_channel);
                         inserted = true;
                         break;
                     }
@@ -146,7 +161,9 @@ impl Config {
         }
         for lang in new_self.support_langs.iter() {
             if !new_self.compiler_output_channels.contains_key(lang) {
-                new_self.compiler_output_channels.insert(lang.clone(), "stderr");
+                new_self
+                    .compiler_output_channels
+                    .insert(lang.clone(), "stderr");
             }
         }
 
@@ -160,12 +177,46 @@ impl Config {
         None
     }
 
-    pub fn get_compile_command(&self, lang: &str) -> Option<&Vec<String>> {
-        self.compile_commands.get(lang)
+    fn get_command_aux(
+        &self,
+        tree: &BTreeMap<String, Vec<String>>,
+        lang: &str,
+        source_path: &str,
+        target_path: &str,
+    ) -> Option<Vec<String>> {
+        if let Some(command) = tree.get(lang) {
+            let mut ret: Vec<String> = vec![];
+            for s in command {
+                if s == "$source" {
+                    ret.push(source_path.to_string());
+                } else if s == "$target" {
+                    ret.push(target_path.to_string());
+                } else {
+                    ret.push(s.to_string());
+                }
+            }
+            Some(ret)
+        } else {
+            None
+        }
     }
 
-    pub fn get_run_command(&self, lang: &str) -> Option<&Vec<String>> {
-        self.run_commands.get(lang)
+    pub fn get_compile_command(
+        &self,
+        lang: &str,
+        source_path: &str,
+        target_path: &str,
+    ) -> Option<Vec<String>> {
+        self.get_command_aux(&self.compile_commands, lang, source_path, target_path)
+    }
+
+    pub fn get_run_command(
+        &self,
+        lang: &str,
+        source_path: &str,
+        target_path: &str,
+    ) -> Option<Vec<String>> {
+        self.get_command_aux(&self.run_commands, lang, source_path, target_path)
     }
 
     pub fn get_compiler_output_channel(&self, lang: &str) -> Option<&str> {
