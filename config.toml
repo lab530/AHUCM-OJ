@@ -1,3 +1,8 @@
+[sql]
+username = "root"
+password = "a1b2c3d4"
+database = "ahucmoj"
+
 languages = ["c", "cpp", "rust", "python"]
 
 [compile]

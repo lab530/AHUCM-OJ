@@ -17,3 +17,7 @@ tmp_*
 ## IDE config
 .vscode
 .idea
+
+## docker compose file
+/docker/docker-compose.yml
+
