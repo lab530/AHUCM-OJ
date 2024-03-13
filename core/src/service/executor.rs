@@ -9,12 +9,12 @@ use std::{
 };
 
 use nix::{
-    libc::{exit, fdopen, freopen, STDERR_FILENO},
+    libc::{exit, fdopen, freopen, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO},
     sys::wait::waitpid,
     unistd::{execvp, fork, write, ForkResult},
 };
 
-use crate::util::config::GLOB_CONFIG;
+use crate::util::{comparer::Comparer, config::GLOB_CONFIG};
 
 use super::testcases_getter::TestcasesGetter;
 
@@ -35,6 +35,7 @@ pub enum CompilationError {
 #[derive(Debug)]
 pub enum RunningError {
     ForkFailed,
+    MissingLang(String),
     NonEmptyStderr(String),
 }
 
@@ -52,32 +53,38 @@ pub enum ExecutionResult {
 
 #[derive(Default)]
 struct RunContext {
-    pub max_testcase_cnt: AtomicUsize,
-    pub run_testcase_cnt: AtomicUsize,
-    pub passed_testcase_cnt: AtomicUsize,
-    pub elapsed_time: AtomicU32,
-    pub used_memory: AtomicU32,
+    pub max_testcase_cnt: usize,
+    pub run_testcase_cnt: usize,
+    pub passed_testcase_cnt: usize,
+    pub elapsed_time: u32,
+    pub used_memory: u32,
 }
 
 impl RunContext {
     pub fn max_testcase_cnt(&self) -> usize {
-        self.max_testcase_cnt.load(Ordering::Relaxed)
+        // self.max_testcase_cnt.load(Ordering::Relaxed)
+        self.max_testcase_cnt
     }
 
     pub fn run_testcase_cnt(&self) -> usize {
-        self.run_testcase_cnt.load(Ordering::SeqCst)
+        // self.run_testcase_cnt.load(Ordering::SeqCst)
+        self.run_testcase_cnt
     }
 
     pub fn passed_testcase_cnt(&self) -> usize {
-        self.run_testcase_cnt.load(Ordering::SeqCst)
+        // self.run_testcase_cnt.load(Ordering::SeqCst)
+        self.passed_testcase_cnt
     }
 
     pub fn elapsed_time(&self) -> u32 {
-        self.elapsed_time.load(Ordering::SeqCst)
+        // self.elapsed_time.load(Ordering::SeqCst)
+        self.elapsed_time
     }
 
     pub fn used_memory(&self) -> u32 {
-        self.used_memory.load(Ordering::SeqCst)
+        // self.used_memory.load(Ordering::SeqCst)
+        self.used_memory
+
     }
 }
 
@@ -111,7 +118,7 @@ impl Executor {
         submission_id: u64,
     ) -> Self {
         Self {
-            source_path,
+            source_path: source_path.clone(),
             lang,
             target_path: format!("{}.exe", source_path),
             log_path: format!("{}.log", source_path),
@@ -120,8 +127,8 @@ impl Executor {
             time_limit,
             testcases_path,
             submission_id,
-            is_compiling_done: false,
-            is_running_done: false,
+            is_compiling_done: true,
+            is_running_done: true,
             run_ctx: RunContext::default(),
         }
     }
@@ -134,15 +141,13 @@ impl Executor {
 
         let mut testcase_getter = TestcasesGetter::new(self.testcases_path.clone());
         let testcases = testcase_getter.get_testcases();
-        self.run_ctx
-            .max_testcase_cnt
-            .store(testcases.len(), Ordering::Relaxed);
+        // self.run_ctx
+        //     .max_testcase_cnt
+        //     .store(testcases.len(), Ordering::Relaxed);
+        self.run_ctx.max_testcase_cnt = testcases.len();
 
         for testcase in testcases {
-            self.run(
-                testcase.get_input_path(),
-                testcase.get_output_path(),
-            );
+            self.run(testcase.get_input_path(), testcase.get_output_path());
         }
 
         let result: ExecutionResult;
@@ -214,7 +219,8 @@ impl Executor {
             _ => return Err(CompilationError::ForkFailed),
         };
 
-        let log = fs::read_to_string(self.log_path).map_err(|_e| { CompilationError::FileSystemError })?;
+        let log =
+            fs::read_to_string(&self.log_path).map_err(|_e| CompilationError::FileSystemError)?;
         if log.is_empty() {
             Ok(())
         } else {
@@ -222,10 +228,10 @@ impl Executor {
         }
     }
 
-    fn run(&self, input_path: &str, output_path: &str) -> Result<(), RunningError>{
+    fn run(&mut self, input_path: &str, output_path: &str) -> Result<(), RunningError> {
         let command = GLOB_CONFIG
             .get_compile_command(&self.lang, &self.source_path, &self.target_path)
-            .ok_or(CompilationError::MissingLang(format!(
+            .ok_or(RunningError::MissingLang(format!(
                 "missing lang `{}`",
                 self.lang
             )))?
@@ -237,24 +243,53 @@ impl Executor {
         let redirect_stderr_path = format!("{}.stderr", self.source_path);
 
         match unsafe { fork() } {
-            Ok(ForkResult::Parent{ child, .. }) => {
+            Ok(ForkResult::Parent { child, .. }) => {
                 waitpid(child, None).unwrap();
-            },
+            }
             Ok(ForkResult::Child) => {
                 let input_path = c_string!(input_path);
                 let redirect_stdout_path = c_string!(redirect_stdout_path.as_str());
                 let redirect_stderr_path = c_string!(redirect_stderr_path.as_str());
+                let r_mode = c_string!("r");
+                let w_mode = c_string!("w");
 
-                // TODO:
-            },
+                unsafe {
+                    let stdin = fdopen(STDIN_FILENO, r_mode.as_ptr());
+                    freopen(input_path.as_ptr(), r_mode.as_ptr(), stdin);
+                    let stdout = fdopen(STDOUT_FILENO, w_mode.as_ptr());
+                    freopen(redirect_stdout_path.as_ptr(), w_mode.as_ptr(), stdout);
+                    let stderr = fdopen(STDERR_FILENO, w_mode.as_ptr());
+                    freopen(redirect_stderr_path.as_ptr(), w_mode.as_ptr(), stderr);
+                }
+
+                match execvp(&command[0], &command) {
+                    Ok(_) => unreachable!(),
+                    Err(errno) => write(
+                        unsafe { File::from_raw_fd(STDERR_FILENO) },
+                        format!("Execvp error, errno = {:?}\n", errno).as_bytes(),
+                    )
+                    .ok(),
+                };
+
+                unsafe { exit(0) };
+            }
             _ => return Err(RunningError::ForkFailed),
         };
+        
+        self.run_ctx.run_testcase_cnt += 1;
+        if Comparer::compare_two_files(output_path, &redirect_stdout_path).is_ok() {
+            self.run_ctx.passed_testcase_cnt += 1;
+            // TODO: update these two field
+            self.run_ctx.used_memory += 100;
+            self.run_ctx.elapsed_time += 100;
+        }
 
         Ok(())
     }
 
     fn update_db(&self, execute_result: &ExecutionResult) {
         // TODO: logic for updating db
+    }
 
     pub fn clean(&self) {
         self.after_run_clean();
