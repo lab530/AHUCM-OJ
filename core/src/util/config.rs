@@ -1,14 +1,14 @@
 use log::{debug, error, warn};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fs,
+    fs, sync::Mutex,
 };
 use once_cell::sync::Lazy;
 
 use crate::constants::CONFIG_PATH;
 
-pub static GLOB_CONFIG: Lazy<Config> = Lazy::new(|| {
-    Config::new()
+pub static GLOB_CONFIG: Lazy<Mutex<Config>> = Lazy::new(|| {
+    Mutex::new(Config::new())
 });
 
 #[derive(Debug, Default)]

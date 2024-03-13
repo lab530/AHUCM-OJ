@@ -8,6 +8,7 @@ use std::{
     },
 };
 
+use log::{debug, info};
 use nix::{
     libc::{exit, fdopen, freopen, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO},
     sys::wait::waitpid,
@@ -39,6 +40,7 @@ pub enum RunningError {
     NonEmptyStderr(String),
 }
 
+#[derive(Debug)]
 pub enum ExecutionResult {
     Halt,
     Accpected(usize, u32, u32),
@@ -84,7 +86,6 @@ impl RunContext {
     pub fn used_memory(&self) -> u32 {
         // self.used_memory.load(Ordering::SeqCst)
         self.used_memory
-
     }
 }
 
@@ -137,7 +138,6 @@ impl Executor {
         if let Err(e) = self.compile() {
             return ExecutionResult::CompilationError(format!("{:?}", e));
         }
-        self.is_compiling_done = true;
 
         let mut testcase_getter = TestcasesGetter::new(self.testcases_path.clone());
         let testcases = testcase_getter.get_testcases();
@@ -147,7 +147,10 @@ impl Executor {
         self.run_ctx.max_testcase_cnt = testcases.len();
 
         for testcase in testcases {
-            self.run(testcase.get_input_path(), testcase.get_output_path());
+            let result = self.run(testcase.get_input_path(), testcase.get_output_path());
+            if let Err(e) = result {
+                debug!("{:?}", e);
+            }
         }
 
         let result: ExecutionResult;
@@ -183,6 +186,8 @@ impl Executor {
 
     fn compile(&self) -> Result<(), CompilationError> {
         let command = GLOB_CONFIG
+            .lock()
+            .unwrap()
             .get_compile_command(&self.lang, &self.source_path, &self.target_path)
             .ok_or(CompilationError::MissingLang(format!(
                 "missing lang `{}`",
@@ -191,6 +196,7 @@ impl Executor {
             .iter()
             .map(|s| c_string!(s.as_str()))
             .collect::<Vec<_>>();
+        debug!("{:?}", command);
 
         match unsafe { fork() } {
             Ok(ForkResult::Parent { child, .. }) => {
@@ -230,7 +236,9 @@ impl Executor {
 
     fn run(&mut self, input_path: &str, output_path: &str) -> Result<(), RunningError> {
         let command = GLOB_CONFIG
-            .get_compile_command(&self.lang, &self.source_path, &self.target_path)
+            .lock()
+            .unwrap()
+            .get_run_command(&self.lang, &self.source_path, &self.target_path)
             .ok_or(RunningError::MissingLang(format!(
                 "missing lang `{}`",
                 self.lang
@@ -238,6 +246,8 @@ impl Executor {
             .iter()
             .map(|s| c_string!(s.as_str()))
             .collect::<Vec<_>>();
+        debug!("{:?}", command);
+        debug!("input_path: {}, output_path: {}", input_path, output_path);
 
         let redirect_stdout_path = format!("{}.stdout", self.source_path);
         let redirect_stderr_path = format!("{}.stderr", self.source_path);
@@ -275,9 +285,11 @@ impl Executor {
             }
             _ => return Err(RunningError::ForkFailed),
         };
-        
+
         self.run_ctx.run_testcase_cnt += 1;
-        if Comparer::compare_two_files(output_path, &redirect_stdout_path).is_ok() {
+        if let Err(e) = Comparer::compare_two_files(output_path, &redirect_stdout_path) {
+            debug!("{:?}", e);
+        } else {
             self.run_ctx.passed_testcase_cnt += 1;
             // TODO: update these two field
             self.run_ctx.used_memory += 100;
@@ -289,6 +301,7 @@ impl Executor {
 
     fn update_db(&self, execute_result: &ExecutionResult) {
         // TODO: logic for updating db
+        info!("update_db")
     }
 
     pub fn clean(&self) {

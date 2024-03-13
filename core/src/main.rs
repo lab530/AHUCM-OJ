@@ -1,14 +1,27 @@
+use actix_web::{App, HttpServer};
+use api::{
+    internal::{ping_get, ping_post, reload_config},
+    judge::submit,
+};
+use constants::SERVER_ADDR;
+
 mod api;
+mod constants;
 mod model;
 mod service;
 mod util;
-mod constants;
 
-use util::{config::Config, thread_pool::ThreadPool};
-
-fn main() {
-    // let thread_pool = ThreadPool::default();
-    // let exceutor = Executor::new(1001, 100, 100, "./assets/1001".into());
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
     env_logger::init();
-    let _config = Config::new();
+    HttpServer::new(|| {
+        App::new()
+            .service(ping_get)
+            .service(ping_post)
+            .service(submit)
+            .service(reload_config)
+    })
+    .bind(SERVER_ADDR)?
+    .run()
+    .await
 }

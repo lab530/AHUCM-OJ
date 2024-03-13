@@ -3,6 +3,8 @@ use std::{
     io::{BufRead, BufReader},
 };
 
+use log::debug;
+
 pub struct Comparer {}
 
 #[derive(Debug, PartialEq, Eq)]
@@ -35,6 +37,10 @@ impl Comparer {
         lhs_file_path: &str,
         rhs_file_path: &str,
     ) -> Result<usize, ComparerErrorWrapper> {
+        debug!(
+            "lhs_file_path: {}, rhs_file_path: {}",
+            lhs_file_path, rhs_file_path
+        );
         let lhs_file = File::open(lhs_file_path).unwrap();
         let rhs_file = File::open(rhs_file_path).unwrap();
 
@@ -46,14 +52,21 @@ impl Comparer {
 
         let mut line_cnt: i32 = 1;
         loop {
-            let lhs_line_len = match lhs_reader.read_line(&mut lhs_line) {
+            let mut lhs_line_len = match lhs_reader.read_line(&mut lhs_line) {
                 Ok(len) => len as i64,
                 Err(_) => -1,
             };
-            let rhs_line_len = match rhs_reader.read_line(&mut rhs_line) {
+            let mut rhs_line_len = match rhs_reader.read_line(&mut rhs_line) {
                 Ok(len) => len as i64,
                 Err(_) => -1,
             };
+
+            let lhs_line_trimmed = lhs_line.trim_end_matches('\n').trim_end_matches('\r');
+            let rhs_line_trimmed = rhs_line.trim_end_matches('\n').trim_end_matches('\r');
+            lhs_line_len -= (lhs_line.len() - lhs_line_trimmed.len()) as i64;
+            rhs_line_len -= (rhs_line.len() - rhs_line_trimmed.len()) as i64;
+            let mut lhs_line = lhs_line_trimmed.to_string();
+            let mut rhs_line = rhs_line_trimmed.to_string();
 
             // both of files got EOF
             if lhs_line_len < 0 && rhs_line_len < 0 {

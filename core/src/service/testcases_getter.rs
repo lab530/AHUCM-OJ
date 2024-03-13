@@ -1,5 +1,7 @@
 use std::{collections::BTreeMap, fs};
 
+use log::debug;
+
 use super::testcase::Testcase;
 
 pub struct TestcasesGetter {
@@ -28,12 +30,13 @@ impl TestcasesGetter {
         for file in dir {
             let file = file.unwrap();
             if file.file_type().unwrap().is_file() {
-                let file_path = file.file_name().into_string().unwrap();
-                if file_path.ends_with(".in") {
-                    let (prefix, _) = file_path.split_at(file_path.len() - ".in".len());
+                let file_name = file.file_name().into_string().unwrap();
+                let file_path = file.path().into_os_string().into_string().unwrap();
+                if file_name.ends_with(".in") {
+                    let (prefix, _) = file_name.split_at(file_name.len() - ".in".len());
                     self.in_file_paths.insert(prefix.into(), file_path.clone());
-                } else if file_path.ends_with(".out") {
-                    let (prefix, _) = file_path.split_at(file_path.len() - ".out".len());
+                } else if file_name.ends_with(".out") {
+                    let (prefix, _) = file_name.split_at(file_name.len() - ".out".len());
                     self.out_file_paths.insert(prefix.into(), file_path.clone());
                 }
             }
@@ -42,11 +45,8 @@ impl TestcasesGetter {
         let mut testcases = vec![];
 
         for (key, in_file_path) in self.in_file_paths.iter() {
-            match self.out_file_paths.get(key) {
-                Some(out_file_path) => {
-                    testcases.push(Testcase::new(in_file_path.clone(), out_file_path.clone()));
-                }
-                None => {}
+            if let Some(out_file_path) = self.out_file_paths.get(key) {
+                testcases.push(Testcase::new(in_file_path.clone(), out_file_path.clone()));
             }
         }
 

@@ -4,10 +4,19 @@ use std::{
         mpsc::{channel, Receiver, Sender},
         Arc, Condvar, Mutex,
     },
-    thread,
+    thread::{self, Thread},
 };
 
+use log::info;
+use once_cell::sync::Lazy;
+
 use crate::service::executor::Executor;
+
+pub static GLOB_THREAD_POOL: Lazy<ThreadPool> = Lazy::new(|| {
+    let thread_pool = ThreadPool::default();
+    thread_pool.awake_all();
+    thread_pool
+});
 
 type Thunk<'a> = Box<dyn FnOnce() + Send + 'a>;
 
@@ -214,7 +223,8 @@ impl ThreadPool {
 
     pub fn send_executor(&self, mut executor: Executor) {
         self.send_job(move || {
-            executor.execute();
+            let result = executor.execute();
+            info!("executing result: {:?}", result);
             executor.clean();
         });
     }
