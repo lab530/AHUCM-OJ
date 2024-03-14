@@ -15,7 +15,7 @@ use nix::{
     unistd::{execvp, fork, write, ForkResult},
 };
 
-use crate::util::{comparer::Comparer, config::GLOB_CONFIG};
+use crate::util::{comparer::Comparer, config::GLOB_CONFIG, database::GLOB_DATABASE};
 
 use super::testcases_getter::TestcasesGetter;
 
@@ -51,6 +51,22 @@ pub enum ExecutionResult {
     TimeLimitExceeded(u32, u32),
     MemoLimitExceeded(u32, u32),
     UnknownError(String),
+}
+
+impl From<&ExecutionResult> for i32 {
+    fn from(value: &ExecutionResult) -> Self {
+        match value {
+            ExecutionResult::Halt => 0,
+            ExecutionResult::Accpected(_, _, _) => 1,
+            ExecutionResult::WrongAnswer(_, _) => 2,
+            ExecutionResult::PresentationError => 3,
+            ExecutionResult::CompilationError(_) => 4,
+            ExecutionResult::RuntimeError(_) => 5,
+            ExecutionResult::TimeLimitExceeded(_, _) => 6,
+            ExecutionResult::MemoLimitExceeded(_, _) => 7,
+            ExecutionResult::UnknownError(_) => 8,
+        }
+    }
 }
 
 #[derive(Default)]
@@ -300,8 +316,12 @@ impl Executor {
     }
 
     fn update_db(&self, execute_result: &ExecutionResult) {
-        // TODO: logic for updating db
-        info!("update_db")
+        GLOB_DATABASE.lock().unwrap().update_record(
+            self.submission_id,
+            self.run_ctx.elapsed_time(),
+            self.run_ctx.used_memory(),
+            execute_result.into(),
+        );
     }
 
     pub fn clean(&self) {

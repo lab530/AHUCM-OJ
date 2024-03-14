@@ -13,6 +13,7 @@ pub static GLOB_CONFIG: Lazy<Mutex<Config>> = Lazy::new(|| {
 
 #[derive(Debug, Default)]
 pub struct Config {
+    pub sql_config: BTreeMap<String, String>,
     support_langs: BTreeSet<String>,
     compile_commands: BTreeMap<String, Vec<String>>,
     run_commands: BTreeMap<String, Vec<String>>,
@@ -40,6 +41,22 @@ impl Config {
             Ok(root) => root,
             Err(e) => return Some(format!("wrong config format: {e}")),
         };
+
+        let sql_list = match root.get("sql") {
+            Some(v) => v,
+            _ => return Some("wrong config format, missing sql".into()),
+        };
+        if let toml::Value::Table(sql_list) = sql_list {
+            for (key, value) in sql_list {
+                if let toml::Value::String(value) = value {
+                    self.sql_config.insert(key.clone(), value.clone());
+                } else {
+                    return Some(format!("wrong config format, sql.{key} should have a string as the value"));
+                }
+            }
+        } else {
+            return Some("wrong config format, [sql] should be a table".into());
+        }
 
         let lang_list = match root.get("languages") {
             Some(v) => v,
