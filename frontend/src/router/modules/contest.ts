@@ -1,4 +1,3 @@
-const { VITE_HIDE_HOME } = import.meta.env;
 const Layout = () => import("@/layout/index.vue");
 
 export default {
@@ -13,11 +12,10 @@ export default {
   children: [
     {
       path: "/contest",
-      name: "Contest",
+      name: "",
       component: () => import("@/views/contest/index.vue"),
       meta: {
         title: "竞赛",
-        showLink: VITE_HIDE_HOME === "true" ? false : true
       }
     }
   ]
