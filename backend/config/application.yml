@@ -1,0 +1,22 @@
+# 配置文件
+
+# 后端端口号
+server:
+  port: 1016
+
+# 数据库配置
+datasources:
+  # 驱动名称
+  driverName: mysql
+  host: 127.0.0.1
+  # 数据库端口号
+  port: 3306
+  # 数据库名称
+  database: Test
+  # 数据库用户
+  username: root
+  # 数据库密码
+  password: ly1124
+  charset: utf8mb4
+  # 设置时区
+  loc: Asia/Shanghai
