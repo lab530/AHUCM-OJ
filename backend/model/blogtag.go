@@ -1,7 +1,9 @@
 package model
 
+import "github.com/jinzhu/gorm"
+
 type BlogTag struct {
-	BlogTagId uint64 `json:"blog-tag-id" gorm:"type:int;primary_key"`
-	BlogId    uint64 `json:"blog-id" gorm:"type:int;"`
-	TagId     uint64 `json:"tag-id" gorm:"type:int;"`
+	gorm.Model
+	BlogId uint64 `json:"blog-id"`
+	TagId  uint64 `json:"tag-id"`
 }

@@ -1,6 +1,8 @@
 package model
 
+import "github.com/jinzhu/gorm"
+
 type Permission struct {
-	PermissionId uint64 `json:"permission-id" gorm:"type=int;primary_key"`
-	Privilege    string `json:"privilege" gorm:"varchar(32); not null"`
+	gorm.Model
+	Privilege string `json:"privilege" gorm:"type:varchar(32); not null;"`
 }

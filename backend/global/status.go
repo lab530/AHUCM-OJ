@@ -3,8 +3,9 @@ package global
 type ExecutionResult uint
 
 const (
+	// iota begin from 0
 	Pending ExecutionResult = iota
-	PendinRejudge
+	PendingRejudge
 	Compiling
 	Running
 	Accepted
