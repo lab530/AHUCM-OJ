@@ -7,6 +7,7 @@ export default {
   redirect: "/contest",
   meta: {
     title: "竞赛",
+    icon: "academicons:acm",
     rank: 0
   },
   children: [

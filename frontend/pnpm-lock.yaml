@@ -20,6 +20,9 @@ dependencies:
   '@vueuse/motion':
     specifier: ^2.1.0
     version: 2.1.0(rollup@2.79.1)(vue@3.4.21)
+  '@xterm/xterm':
+    specifier: ^5.4.0
+    version: 5.4.0
   animate.css:
     specifier: ^4.1.1
     version: 4.1.1
@@ -1830,6 +1833,10 @@ packages:
     transitivePeerDependencies:
       - '@vue/composition-api'
       - vue
+    dev: false
+
+  /@xterm/xterm@5.4.0:
+    resolution: {integrity: sha512-GlyzcZZ7LJjhFevthHtikhiDIl8lnTSgol6eTM4aoSNLcuXu3OEhnbqdCVIjtIil3jjabf3gDtb1S8FGahsuEw==}
     dev: false
 
   /@zougt/some-loader-utils@1.4.3:
