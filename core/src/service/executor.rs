@@ -2,13 +2,9 @@ use std::{
     ffi::CString,
     fs::{self, File},
     os::fd::FromRawFd,
-    sync::{
-        atomic::{AtomicU32, AtomicUsize, Ordering},
-        Arc,
-    },
 };
 
-use log::{debug, info};
+use log::debug;
 use nix::{
     libc::{exit, fdopen, freopen, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO},
     sys::wait::waitpid,
@@ -43,6 +39,8 @@ pub enum RunningError {
 #[derive(Debug)]
 pub enum ExecutionResult {
     Halt,
+    Compiling,
+    Running,
     Accpected(usize, u32, u32),
     WrongAnswer(usize, usize),
     PresentationError,
@@ -53,18 +51,36 @@ pub enum ExecutionResult {
     UnknownError(String),
 }
 
+/*
+	Pending 0
+	PendingRejudge 1
+	Compiling 2
+	Running 3
+	Accepted 4
+	PresentationError 5
+	WrongAnswer 6
+	TimeLimitExceeded 7
+	MemoryLimitExceeded 8
+	OutputLimitExceeded 9
+	RuntimeError 10
+	CompileError 11
+	UnknownError 12
+* */
+
 impl From<&ExecutionResult> for i32 {
     fn from(value: &ExecutionResult) -> Self {
         match value {
-            ExecutionResult::Halt => 0,
-            ExecutionResult::Accpected(_, _, _) => 1,
-            ExecutionResult::WrongAnswer(_, _) => 2,
-            ExecutionResult::PresentationError => 3,
-            ExecutionResult::CompilationError(_) => 4,
-            ExecutionResult::RuntimeError(_) => 5,
-            ExecutionResult::TimeLimitExceeded(_, _) => 6,
-            ExecutionResult::MemoLimitExceeded(_, _) => 7,
-            ExecutionResult::UnknownError(_) => 8,
+            ExecutionResult::Halt => 12,
+            ExecutionResult::Compiling => 2,
+            ExecutionResult::Running => 3,
+            ExecutionResult::Accpected(_, _, _) => 4,
+            ExecutionResult::WrongAnswer(_, _) => 6,
+            ExecutionResult::PresentationError => 5,
+            ExecutionResult::CompilationError(_) => 11,
+            ExecutionResult::RuntimeError(_) => 10,
+            ExecutionResult::TimeLimitExceeded(_, _) => 7,
+            ExecutionResult::MemoLimitExceeded(_, _) => 8,
+            ExecutionResult::UnknownError(_) => 12,
         }
     }
 }
@@ -151,10 +167,12 @@ impl Executor {
     }
 
     pub fn execute(&mut self) -> ExecutionResult {
+        self.update_db(&ExecutionResult::Compiling);
         if let Err(e) = self.compile() {
             return ExecutionResult::CompilationError(format!("{:?}", e));
         }
 
+        self.update_db(&ExecutionResult::Compiling);
         let mut testcase_getter = TestcasesGetter::new(self.testcases_path.clone());
         let testcases = testcase_getter.get_testcases();
         // self.run_ctx
