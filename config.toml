@@ -1,9 +1,13 @@
 [sql]
 host = "localhost"
 port = "5432"
-username = "root"
+username = "postgres"
 password = "a1b2c3d4"
 database = "ahucmoj"
+timezone = "Asia/Shanghai"
+
+[server]
+port = "1016"
 
 languages = ["c", "cpp", "rust", "python"]
 
