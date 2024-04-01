@@ -3,39 +3,37 @@ package common
 import (
 	"backend/model"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/jinzhu/gorm"
 	"github.com/spf13/viper"
-	"net/url"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"log"
 )
 
 var DB *gorm.DB
 
-func InitDB() *gorm.DB {
-	driverName := viper.GetString("datasources.driverName")
-	host := viper.GetString("datasources.host")
-	port := viper.GetString("datasources.port")
-	database := viper.GetString("datasources.database")
-	username := viper.GetString("datasources.username")
-	password := viper.GetString("datasources.password")
-	charset := viper.GetString("datasources.charset")
-	loc := viper.GetString("datasources.loc")
-	args := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=%s&parseTime=true&loc=%s",
-		username,
-		password,
+func InitDB() {
+	host := viper.GetString("sql.host")
+	port := viper.GetString("sql.port")
+	database := viper.GetString("sql.database")
+	username := viper.GetString("sql.username")
+	password := viper.GetString("sql.password")
+	loc := viper.GetString("sql.timezone")
+	args := fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s TimeZone=%s",
 		host,
 		port,
+		username,
 		database,
-		charset,
-		url.QueryEscape(loc))
-
-	db, err := gorm.Open(driverName, args)
+		password,
+		loc)
+	log.Println(args)
+	db, err := gorm.Open(postgres.Open(args), &gorm.Config{})
 	if err != nil {
 		panic("failed to connect database, err: " + err.Error())
 	}
 	CreateTable(db)
+
+	log.Printf("link success")
 	DB = db
-	return db
 }
 
 func GetDB() *gorm.DB {
@@ -45,7 +43,6 @@ func GetDB() *gorm.DB {
 // 建表
 func CreateTable(DB *gorm.DB) {
 	DB.AutoMigrate(&model.Permission{})
-
 	DB.AutoMigrate(&model.Tag{})
 	DB.AutoMigrate(&model.Blog{})
 	DB.AutoMigrate(&model.BlogTag{})

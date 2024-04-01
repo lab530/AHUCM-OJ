@@ -2,7 +2,7 @@ package model
 
 import (
 	"backend/global"
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 )
 
 type Submission struct {
