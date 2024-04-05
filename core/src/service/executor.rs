@@ -6,7 +6,7 @@ use std::{
 
 use log::debug;
 use nix::{
-    libc::{exit, fdopen, freopen, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO},
+    libc::{alarm, exit, fdopen, freopen, rlimit, setrlimit, setrlimit64, RLIMIT_AS, RLIMIT_CPU, RLIMIT_FSIZE, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO},
     sys::wait::waitpid,
     unistd::{execvp, fork, write, ForkResult},
 };
@@ -237,6 +237,27 @@ impl Executor {
                 waitpid(child, None).unwrap();
             }
             Ok(ForkResult::Child) => {
+                let cpu = 50u32;
+                let rlim_cpu = rlimit { rlim_cur: cpu as u64, rlim_max: cpu as u64 };
+                unsafe {
+                    setrlimit(RLIMIT_CPU, &rlim_cpu);
+                    alarm(0);
+                    if cpu > 0 {
+                        alarm(cpu);
+                    } else {
+                        alarm(1);
+                    }
+                }
+
+                let unit_mb = 1048576u64;
+                let fsize = 500 * unit_mb;  // 500 MB
+                let rlim_fsize = rlimit { rlim_cur: fsize, rlim_max: fsize };
+                unsafe { setrlimit(RLIMIT_FSIZE, &rlim_fsize); }
+
+                let mem = unit_mb << 12;
+                let rlim_as = rlimit { rlim_cur: mem, rlim_max: mem };
+                unsafe { setrlimit(RLIMIT_AS, &rlim_as); }
+ 
                 let log_path = c_string!(self.log_path.as_str());
                 let w_mode = c_string!("w");
 
