@@ -15,3 +15,12 @@ func RandomString(n int) string {
 
 	return string(result)
 }
+
+func CheckAllEmptyString(str string) bool {
+	for _, char := range str {
+		if char != ' ' {
+			return false
+		}
+	}
+	return true
+}
