@@ -51,7 +51,7 @@ func ProblemAdd(context *gin.Context) {
 	time := Problem.TimeLimit
 	memo := Problem.MemoLimit
 	title := Problem.Title
-	id := Problem.ID
+	id := Problem.UserId
 	desc := Problem.Description
 	input := Problem.Input
 	oput := Problem.Output
