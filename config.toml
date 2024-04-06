@@ -26,3 +26,6 @@ python = "python3 $source"
 c = "stderr"
 cpp = "stderr"
 rust = "stdout"
+
+[flags]
+java = ["mem"]

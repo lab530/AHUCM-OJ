@@ -6,12 +6,12 @@ use std::{
 
 use log::debug;
 use nix::{
-    libc::{alarm, exit, fdopen, freopen, rlimit, setrlimit, setrlimit64, RLIMIT_AS, RLIMIT_CPU, RLIMIT_FSIZE, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO},
+    libc::{alarm, exit, fdopen, freopen, ptrace, rlimit, rusage, setrlimit, setrlimit64, wait4, PTRACE_KILL, PTRACE_O_TRACEEXIT, PTRACE_O_TRACESYSGOOD, PTRACE_SETOPTIONS, RLIMIT_AS, RLIMIT_CPU, RLIMIT_FSIZE, RLIMIT_NPROC, RLIMIT_STACK, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, WEXITSTATUS, WIFEXITED, __WALL},
     sys::wait::waitpid,
     unistd::{execvp, fork, write, ForkResult},
 };
 
-use crate::util::{comparer::Comparer, config::GLOB_CONFIG, database::GLOB_DATABASE};
+use crate::util::{comparer::Comparer, config::GLOB_CONFIG, database::GLOB_DATABASE, unix::{get_file_size, get_proc_status}};
 
 use super::testcases_getter::TestcasesGetter;
 
@@ -20,6 +20,11 @@ macro_rules! c_string {
         CString::new($string).unwrap()
     };
 }
+
+const UNIT_MB: u64 = 1048576;
+const FSIZE_LIM: u64 = UNIT_MB << 7;
+const MEM_LIM: u64 = UNIT_MB << 7;
+const PROC_LIM: u64 = 750;
 
 #[derive(Debug)]
 pub enum CompilationError {
@@ -48,6 +53,7 @@ pub enum ExecutionResult {
     RuntimeError(String),
     TimeLimitExceeded(u32, u32),
     MemoLimitExceeded(u32, u32),
+	OutputLimitExceeded,
     UnknownError(String),
 }
 
@@ -80,6 +86,7 @@ impl From<&ExecutionResult> for i32 {
             ExecutionResult::RuntimeError(_) => 10,
             ExecutionResult::TimeLimitExceeded(_, _) => 7,
             ExecutionResult::MemoLimitExceeded(_, _) => 8,
+            ExecutionResult::OutputLimitExceeded => 9,
             ExecutionResult::UnknownError(_) => 12,
         }
     }
@@ -89,7 +96,10 @@ impl From<&ExecutionResult> for i32 {
 struct RunContext {
     pub max_testcase_cnt: usize,
     pub run_testcase_cnt: usize,
-    pub passed_testcase_cnt: usize,
+    pub wrong_answer_cnt: usize,
+    pub mem_exceeded_cnt: usize,
+    pub runtime_error_cnt: usize,
+    pub output_exceeded_cnt: usize,
     pub elapsed_time: u32,
     pub used_memory: u32,
 }
@@ -105,9 +115,21 @@ impl RunContext {
         self.run_testcase_cnt
     }
 
-    pub fn passed_testcase_cnt(&self) -> usize {
+    pub fn wrong_answer_cnt(&self) -> usize {
         // self.run_testcase_cnt.load(Ordering::SeqCst)
-        self.passed_testcase_cnt
+        self.wrong_answer_cnt
+    }
+
+    pub fn mem_exceeded_cnt(&self) -> usize {
+        self.mem_exceeded_cnt
+    }
+
+    pub fn runtime_error_cnt(&self) -> usize {
+        self.runtime_error_cnt
+    }
+
+    pub fn output_exceeded_cnt(&self) -> usize {
+        self.output_exceeded_cnt
     }
 
     pub fn elapsed_time(&self) -> u32 {
@@ -188,6 +210,7 @@ impl Executor {
         }
 
         let result: ExecutionResult;
+        // TODO: update result branching logic
         if self.run_ctx.max_testcase_cnt() as u32 * self.time_limit < self.run_ctx.elapsed_time() {
             result = ExecutionResult::TimeLimitExceeded(
                 self.run_ctx.elapsed_time(),
@@ -200,7 +223,7 @@ impl Executor {
                 self.run_ctx.used_memory(),
                 self.run_ctx.max_testcase_cnt() as u32 * self.mem_limit,
             );
-        } else if self.run_ctx.max_testcase_cnt() == self.run_ctx.passed_testcase_cnt() {
+        } else if self.run_ctx.wrong_answer_cnt() != 0 {
             result = ExecutionResult::Accpected(
                 self.run_ctx.max_testcase_cnt(),
                 self.run_ctx.elapsed_time(),
@@ -208,7 +231,7 @@ impl Executor {
             );
         } else {
             result = ExecutionResult::WrongAnswer(
-                self.run_ctx.passed_testcase_cnt(),
+                self.run_ctx.max_testcase_cnt() - self.run_ctx.wrong_answer_cnt(),
                 self.run_ctx.max_testcase_cnt(),
             );
         }
@@ -249,14 +272,13 @@ impl Executor {
                     }
                 }
 
-                let unit_mb = 1048576u64;
-                let fsize = 500 * unit_mb;  // 500 MB
+                let fsize = 500 * UNIT_MB;
                 let rlim_fsize = rlimit { rlim_cur: fsize, rlim_max: fsize };
-                unsafe { setrlimit(RLIMIT_FSIZE, &rlim_fsize); }
+                unsafe { setrlimit(RLIMIT_FSIZE, &rlim_fsize) };
 
-                let mem = unit_mb << 12;
+                let mem = UNIT_MB << 12;
                 let rlim_as = rlimit { rlim_cur: mem, rlim_max: mem };
-                unsafe { setrlimit(RLIMIT_AS, &rlim_as); }
+                unsafe { setrlimit(RLIMIT_AS, &rlim_as) };
  
                 let log_path = c_string!(self.log_path.as_str());
                 let w_mode = c_string!("w");
@@ -279,7 +301,7 @@ impl Executor {
             }
             _ => return Err(CompilationError::ForkFailed),
         };
-
+        
         let log =
             fs::read_to_string(&self.log_path).map_err(|_e| CompilationError::FileSystemError)?;
         if log.is_empty() {
@@ -309,9 +331,64 @@ impl Executor {
 
         match unsafe { fork() } {
             Ok(ForkResult::Parent { child, .. }) => {
-                waitpid(child, None).unwrap();
+                debug!("Judging, child pid: {}", child.as_raw());
+                let mut status: i32 = 0;
+                let mut ruse: rusage = unsafe { std::mem::zeroed() };
+                let mut first = true;
+                let mut tick: usize = 0;
+
+                let std_output_size = get_file_size(output_path);
+                loop {
+                    tick += 1;
+                    unsafe { wait4(child.as_raw(), &mut status, __WALL, &mut ruse) };
+                    if first {
+                        unsafe { ptrace(PTRACE_SETOPTIONS, child.as_raw(), 0, PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACEEXIT) };
+                        first = false;
+                    }
+                    
+                    let temp = get_proc_status(child.as_raw(), "VmPeak:").unwrap() as u64;
+                    if temp > self.mem_limit as u64 * UNIT_MB {
+                        unsafe { ptrace(PTRACE_KILL, child.as_raw(), 0, 0) };
+                        self.run_ctx.mem_exceeded_cnt += 1;
+                        break;
+                    }
+
+                    // runtime error: ret val is not 0
+                    if WIFEXITED(status) && WEXITSTATUS(status) != 0 {
+                        self.run_ctx.wrong_answer_cnt += 1;
+                        break;
+                    }
+                    
+                    // output size is greater than double of standard output's
+                    if tick % 250 == 0 && get_file_size(&redirect_stdout_path) > std_output_size * 2 {
+                        unsafe { ptrace(PTRACE_KILL, child.as_raw(), 0, 0)};
+                        break;
+                    }
+                    
+                    
+                }
             }
             Ok(ForkResult::Child) => {
+                let time = self.time_limit - self.run_ctx.elapsed_time() + 1;
+                let rlim_cpu = rlimit { rlim_cur: time as u64, rlim_max: time as u64 + 1 };
+                unsafe {
+                    setrlimit(RLIMIT_CPU, &rlim_cpu);
+                    alarm(0);
+                    alarm(if self.time_limit > 1 { self.time_limit } else { 1 });
+                }
+
+                let rlim_fsize = rlimit { rlim_cur: FSIZE_LIM, rlim_max: FSIZE_LIM + UNIT_MB };
+                unsafe { setrlimit(RLIMIT_FSIZE, &rlim_fsize) };
+                
+                let rlim_proc = rlimit { rlim_cur: PROC_LIM, rlim_max: PROC_LIM };
+                unsafe { setrlimit(RLIMIT_NPROC, &rlim_proc) };
+
+                let rlim_stack = rlimit { rlim_cur: UNIT_MB << 8, rlim_max: UNIT_MB << 8 };
+                unsafe { setrlimit(RLIMIT_STACK, &rlim_stack) };
+
+                let rlim_mem = rlimit { rlim_cur: self.mem_limit as u64 / 2 * 3 * UNIT_MB, rlim_max: self.mem_limit as u64 * 2 * UNIT_MB };
+                unsafe { setrlimit(RLIMIT_AS, &rlim_mem) };
+
                 let input_path = c_string!(input_path);
                 let redirect_stdout_path = c_string!(redirect_stdout_path.as_str());
                 let redirect_stderr_path = c_string!(redirect_stderr_path.as_str());
@@ -339,17 +416,17 @@ impl Executor {
                 unsafe { exit(0) };
             }
             _ => return Err(RunningError::ForkFailed),
+            Err(_) => todo!(),
         };
 
         self.run_ctx.run_testcase_cnt += 1;
         if let Err(e) = Comparer::compare_two_files(output_path, &redirect_stdout_path) {
             debug!("{:?}", e);
+            self.run_ctx.wrong_answer_cnt += 1;
         } else {
-            self.run_ctx.passed_testcase_cnt += 1;
-            // TODO: update these two field
-            self.run_ctx.used_memory += 100;
-            self.run_ctx.elapsed_time += 100;
         }
+        // self.run_ctx.used_memory += 100;
+        // self.run_ctx.elapsed_time += 100;
 
         Ok(())
     }
