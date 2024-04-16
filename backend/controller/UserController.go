@@ -151,7 +151,7 @@ func UpdateUserInfo(context *gin.Context) {
 	// 获取参数
 	DB := common.GetDB()
 	name := requestUser.UserName
-	UserInfo = queryUserInfoByName(DB, name)
+	UserInfo = QueryUserInfoByName(DB, name)
 	nickname := requestUser.UserNickname
 	email := requestUser.UserEmail
 	password := requestUser.UserPassword
@@ -201,7 +201,7 @@ func UpdateUserInfo(context *gin.Context) {
 		file, err := context.FormFile("UserIcon")
 		if err != nil {
 			// 处理获取文件出错的情况
-			response.Fail(context, nil, "头像上传失败")
+			response.Response(context, http.StatusBadRequest, 400, nil, "头像上传失败")
 			return
 		}
 		MaxFileSize := 200 * 1024 // 200 kb
@@ -209,7 +209,7 @@ func UpdateUserInfo(context *gin.Context) {
 
 		if fileSize > int64(MaxFileSize) {
 			// 文件大小超过限制
-			response.Fail(context, nil, "头像大小超过限制")
+			response.Response(context, http.StatusBadRequest, 400, nil, "头像大小超过限制")
 			return
 		}
 
@@ -222,7 +222,8 @@ func UpdateUserInfo(context *gin.Context) {
 		err = context.SaveUploadedFile(file, "./static/icon/"+newFileName)
 		if err != nil {
 			// 处理文件保存出错的情况
-			response.Fail(context, nil, "文件存储失败")
+			//response.Fail(context, nil, "文件存储失败")
+			response.Response(context, http.StatusBadRequest, 400, nil, "文件存储失败")
 			return
 		}
 		UserInfo.UserIcon = newFileName
@@ -260,8 +261,16 @@ func haveSpace(s string) bool {
 }
 
 // 通过 user name 去数据库当中查询信息
-func queryUserInfoByName(db *gorm.DB, name string) model.User {
+func QueryUserInfoByName(db *gorm.DB, name string) model.User {
 	var user model.User
 	db.Where("user_name = ?", name).First(&user)
+	return user
+}
+
+// 通过 uid 查询用户信息
+
+func QueryUserInfoById(db *gorm.DB, id int) model.User {
+	var user model.User
+	db.Where("id = ?", id).Omit("create_at", "updated_at", "deleted_at", "user_password", "permission_id").First(&user)
 	return user
 }
