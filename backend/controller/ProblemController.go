@@ -6,6 +6,7 @@ import (
 	"backend/helper"
 	"backend/model"
 	"backend/response"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"log"
@@ -44,7 +45,8 @@ func GetProblemList(context *gin.Context) {
 	}, "获取成功")
 }
 
-func ProblemAdd(context *gin.Context) {
+func ProblemRevise(context *gin.Context) {
+	pid := context.DefaultQuery("pid", "0")
 	var DB = common.GetDB()
 	var Problem = model.Problem{}
 	context.ShouldBind(&Problem)
@@ -72,11 +74,14 @@ func ProblemAdd(context *gin.Context) {
 		return
 	}
 
-	// 判断用户名是否存在
-	if isTitleExist(DB, title) {
+	// 判断标题是否存在
+	if pid == "0" && isTitleExist(DB, title) {
 		response.Response(context, http.StatusUnprocessableEntity, 422, nil, "该标题已存在")
 		return
 	}
+
+	DataDirectoryName := helper.UniqueName()
+	directoryPath := "./static/testcases/" + DataDirectoryName
 
 	newProblem := model.Problem{
 		Title:        title,
@@ -87,14 +92,32 @@ func ProblemAdd(context *gin.Context) {
 		SimpleInput:  siput,
 		SimpleOutput: soput,
 		Illustrate:   Ill,
-		Data:         "",
+		Data:         "backend/static/testcases/" + DataDirectoryName,
 		TimeLimit:    time,
 		MemoLimit:    memo,
 	}
+
+	if pid != "0" {
+		data := GetPath(DB, pid)
+		newProblem.Data = data
+		DB.Model(&model.Problem{}).Where("id = ?", pid).Updates(newProblem)
+		response.Success(context, nil, "题目编辑成功")
+		return
+	}
+
 	err := DB.Create(&newProblem).Error
 	if err != nil {
 		// 处理创建记录时的错误
+		log.Println(newProblem)
+		response.Response(context, http.StatusUnprocessableEntity, 422, nil, "题目上传错误")
 		panic(err)
+	}
+	err = helper.CreateDirectory(directoryPath)
+	if err != nil {
+		response.Response(context, http.StatusUnprocessableEntity, 422, nil, "题目数据文件夹创建失败")
+		return
+	} else {
+		fmt.Println("Directory created successfully!")
 	}
 	// 返回结果
 	response.Success(context, nil, "题目添加成功")
@@ -115,11 +138,16 @@ func GetProblemDetail(context *gin.Context) {
 		response.Response(context, http.StatusUnprocessableEntity, 422, nil, "该题目信息不存在")
 		return
 	}
+	if problem.UserId == 0 {
+		response.Response(context, http.StatusUnprocessableEntity, 422, nil, "用户信息获取失败")
+		return
+	}
+	Uinfo := QueryUserInfoById(db, int(problem.UserId))
 
 	response.Success(context, gin.H{
 		"data": problem,
+		"Info": Uinfo,
 	}, "获取题目成功")
-
 }
 
 // 查找标题
@@ -143,4 +171,13 @@ func GetProblem(keyword string, category string) *gorm.DB {
 			Where("pc.category_id = (SELECT c.id FROM categories c WHERE c.id = ?)", category)
 	}
 	return tx
+}
+
+func GetPath(db *gorm.DB, pid string) string {
+	var problem model.Problem
+	db.Where("id = ?", pid).First(&problem)
+	if problem.ID != 0 {
+		return problem.Data
+	}
+	return ""
 }
