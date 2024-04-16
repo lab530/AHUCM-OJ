@@ -17,4 +17,5 @@ type Submission struct {
 	SourcePath    string                 `json:"source_path" gorm:"type=varchar(255);not null"`
 	TestcasesPath string                 `json:"testcases_path" gorm:"type=varchar(255);not null"`
 	Status        global.ExecutionResult `json:"status" gorm:"not null"`
+	User          User                   `json:"user" gorm:"foreignKey:UserId"`
 }
