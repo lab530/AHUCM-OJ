@@ -9,6 +9,7 @@ type UserDto struct {
 	UserPassword string `json:"user_password"`
 	UserEmail    string `json:"user_email"`
 	UserIcon     string `json:"user_icon"`
+	PermissionId uint64 `json:"permission_id"`
 }
 
 func ToUserDto(user model.User) UserDto {
