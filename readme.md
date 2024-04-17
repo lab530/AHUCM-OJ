@@ -33,7 +33,7 @@ pip 换中国源参考：
 
 node 版本: v18.19.0 链接<https://www.nodejs.com.cn/download.html>
 
-npm  版本：10.5.0 （以实际的 node v18.19.0 版本自带的 npm 版本为主）
+npm  版本: 10.5.0 （以实际的 node v18.19.0 版本自带的 npm 版本为主）
 
 npm 换源
 
