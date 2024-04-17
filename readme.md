@@ -31,7 +31,36 @@ pip 换中国源参考：
 
 ### Vue.js
 
-TODO
+node 版本: v18.19.0 链接<https://www.nodejs.com.cn/download.html>
+npm  版本：10.5.0 （以实际的 node v18.19.0 版本自带的 npm 版本为主）
+
+npm 换源
+
+```bash
+npm config set registry https://registry.npmmirror.com
+```
+查看当前 npm 的下载源：
+
+```bash
+npm config get registry
+```
+全局安装 yarn
+
+``` bash
+cd frontend
+npm install -g yarn
+```
+
+安装项目依赖
+
+```bash
+yarn install
+```
+运行项目
+
+```bash
+yarn serve
+```
 
 ### Rust
 
