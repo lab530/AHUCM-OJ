@@ -31,7 +31,7 @@ func GetProblemList(context *gin.Context) {
 	tx := GetProblem(keyword, category)
 
 	list := make([]*model.Problem, 0)
-	err = tx.Count(&ProblemCount).Omit("description", "input", "output", "simple_input", "simple_output", "illustrate").Offset(page).Limit(size).Find(&list).Error
+	err = tx.Count(&ProblemCount).Omit("description", "input", "output", "simple_input", "simple_output", "illustrate").Order("id").Offset(page).Limit(size).Find(&list).Error
 
 	if err != nil {
 		log.Println("Get Problem List Error:", err)
