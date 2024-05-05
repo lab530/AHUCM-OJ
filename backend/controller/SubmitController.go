@@ -37,7 +37,7 @@ func SaveCodeToFile(code string, filePath string) error {
 
 func Getlang(context *gin.Context) {
 	helper.InitConfig()
-	languages := viper.GetStringSlice("languages")
+	languages := viper.GetStringSlice("common.languages")
 	response.Response(context, http.StatusOK, 200, gin.H{
 		"lang": languages,
 	}, "获取成功")
@@ -64,8 +64,8 @@ func Submit(context *gin.Context) {
 	submit.Lang = request.Lang
 
 	helper.InitConfig()
-	languages := viper.GetStringSlice("languages")
-	suffix := viper.GetStringSlice("suffix")
+	languages := viper.GetStringSlice("common.languages")
+	suffix := viper.GetStringSlice("common.suffix")
 	if len(request.Lang) > 0 {
 		// 如果提交的是 Code
 		index := -1
