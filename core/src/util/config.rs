@@ -58,7 +58,11 @@ impl Config {
             return Some("wrong config format, [sql] should be a table".into());
         }
 
-        let lang_list = match root.get("languages") {
+        let common = match root.get("common") {
+            Some(v) => v,
+            _ => return Some("wrong config format, missing common".into()),
+        };
+        let lang_list = match common.get("languages") {
             Some(v) => v,
             _ => return Some("wrong config format, missing languages".into()),
         };

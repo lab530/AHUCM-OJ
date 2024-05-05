@@ -8,8 +8,8 @@ timezone = "Asia/Shanghai"
 
 [server]
 port = "1016"
-
 languages = ["c", "cpp", "rust", "python"]
+suffix = ["c", "cpp", "rs", "py"]
 
 [compile]
 c = "gcc -std=c17 -o $target $source"

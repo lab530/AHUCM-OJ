@@ -43,11 +43,13 @@ func GetDB() *gorm.DB {
 // 建表
 func CreateTable(DB *gorm.DB) {
 	DB.AutoMigrate(&model.Permission{})
+	DB.AutoMigrate(&model.User{})
 	DB.AutoMigrate(&model.Tag{})
 	DB.AutoMigrate(&model.Blog{})
 	DB.AutoMigrate(&model.BlogTag{})
 	DB.AutoMigrate(&model.New{})
 	DB.AutoMigrate(&model.Problem{})
 	DB.AutoMigrate(&model.Submission{})
-	DB.AutoMigrate(&model.User{})
+	DB.AutoMigrate(&model.ProblemCategory{})
+	DB.AutoMigrate(&model.Category{})
 }
