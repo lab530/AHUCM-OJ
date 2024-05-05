@@ -8,6 +8,7 @@ timezone = "Asia/Shanghai"
 
 [server]
 port = "1016"
+
 languages = ["c", "cpp", "rust", "python"]
 suffix = ["c", "cpp", "rs", "py"]
 
