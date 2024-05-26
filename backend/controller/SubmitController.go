@@ -6,6 +6,7 @@ import (
 	"backend/helper"
 	"backend/model"
 	"backend/response"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 	"gorm.io/gorm"
@@ -18,11 +19,11 @@ import (
 )
 
 type SubmitRequest struct {
-	UserId    uint64    `json:"UserId" `
-	Lang      string    `json:"Lang" `
-	ProblemId uint64    `json:"ProblemId" `
-	Time      time.Time `json:"Time" `
-	Code      string    `json:"Code" `
+	UserId    uint64    `json:"user_id" `
+	Lang      string    `json:"lang" `
+	ProblemId uint64    `json:"problem_id" `
+	Time      time.Time `json:"time" `
+	Code      string    `json:"code" `
 }
 
 func SaveCodeToFile(code string, filePath string) error {
@@ -44,7 +45,8 @@ func Getlang(context *gin.Context) {
 }
 
 func Submit(context *gin.Context) {
-	cid, _ := strconv.Atoi(context.DefaultQuery("cid", define.DefaultSize))
+	cid, _ := strconv.Atoi(context.DefaultQuery("cid", define.DefaultCid))
+	log.Println(cid)
 	//pid, _ := strconv.Atoi(context.Query("pid"))
 	var request SubmitRequest
 	context.ShouldBind(&request)
@@ -53,10 +55,6 @@ func Submit(context *gin.Context) {
 	//	return
 	//}
 	// 待补充
-	log.Println(request)
-	if cid != 0 {
-		// 说明是竞赛提交， 需要在竞赛表中添加记录。
-	}
 	var submit = model.Submission{}
 	submit.UserId = request.UserId
 	submit.SubmitTime = request.Time
@@ -86,6 +84,7 @@ func Submit(context *gin.Context) {
 				// 处理保存文件出错的情况
 				// 返回适当的错误响应
 				response.Response(context, http.StatusUnprocessableEntity, 422, nil, "代码保存失败")
+				return
 			}
 
 		}
@@ -115,6 +114,15 @@ func Submit(context *gin.Context) {
 		}
 		ms := request.Time.Round(time.Millisecond).Format(".000")
 		NewFileName := request.Time.Format("20060102150405") + ms[1:] + extension
+		// 检查 code 文件夹是否存在
+		directoryPath := "./static/testcases/"
+		err = helper.CreateDirectory(directoryPath)
+		if err != nil {
+			response.Response(context, http.StatusUnprocessableEntity, 422, nil, "题目数据文件夹创建失败")
+			return
+		} else {
+			fmt.Println("Directory created successfully!")
+		}
 		err = context.SaveUploadedFile(file, "./static/code/"+NewFileName)
 		//extension := filepath.Ext(file.Filename)
 		submit.SourcePath = "backend/static/code/" + NewFileName
@@ -136,18 +144,60 @@ func Submit(context *gin.Context) {
 		return
 	}
 	submit.TestcasesPath = path
-	submit.TimeLimit = p.TimeLimit
-	submit.MemoLimit = p.MemoLimit
+	submit.TimeUse = p.TimeLimit
+	submit.MemoUse = p.MemoLimit
 	log.Println(submit)
 
 	DB := common.GetDB()
 	err = DB.Create(&submit).Error
+
 	if err != nil {
 		// 处理创建记录时的错误
 		response.Response(context, http.StatusBadRequest, 400, nil, "提交失败")
 		panic(err)
 	}
 	// 返回结果
+	log.Println(cid)
+	if cid != 0 {
+		// 说明是竞赛提交， 需要在竞赛表中添加记录。
+		var ContestSubmit model.ContestSubmit
+		ContestSubmit.SubmitId = uint64(submit.ID)
+		ContestSubmit.ContestId = uint64(cid)
+		err = DB.Create(&ContestSubmit).Error
+		if err != nil {
+			// 处理创建记录时的错误
+			response.Response(context, http.StatusBadRequest, 400, nil, "竞赛提交添加失败")
+			panic(err)
+		}
+
+		var ContestRank model.ContestRank
+		ContestRank.ContestId = uint64(cid)
+		ContestRank.ProblemId = submit.ProblemId
+		ContestRank.UserId = submit.UserId
+		ContestRank.SumSubmit = 1
+		ContestRank.Penalty = 0
+		ContestRank.PenaltyCount = 0
+		var existingRank model.ContestRank
+		err = DB.Where("contest_id = ? AND problem_id = ? AND user_id = ?",
+			ContestRank.ContestId, ContestRank.ProblemId, ContestRank.UserId).
+			First(&existingRank).Error
+		if existingRank.ID == 0 {
+			// 不存在记录, 插入新记录
+			err = DB.Create(&ContestRank).Error
+			if err != nil {
+				response.Response(context, http.StatusBadRequest, 400, nil, "竞赛统计添加失败")
+				return
+			}
+		} else {
+			// 存在记录，更新sum_submit字段
+			existingRank.SumSubmit++
+			err = DB.Save(&existingRank).Error
+			if err != nil {
+				response.Response(context, http.StatusBadRequest, 400, nil, "竞赛统计更新失败")
+				return
+			}
+		}
+	}
 	response.Success(context, nil, "提交成功")
 }
 

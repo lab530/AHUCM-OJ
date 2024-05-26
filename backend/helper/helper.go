@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -66,6 +67,14 @@ func UniqueName() string {
 	return NewFileName
 }
 
+func StringToInt(s string) int {
+	i, err := strconv.Atoi(s)
+	if err != nil {
+		return 0
+	}
+	return i
+}
+
 // 创建唯一文件夹
 func CreateDirectory(path string) error {
 	err := os.MkdirAll(path, os.ModePerm)
@@ -74,4 +83,3 @@ func CreateDirectory(path string) error {
 	}
 	return nil
 }
-
