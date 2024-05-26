@@ -225,7 +225,7 @@ impl Executor {
         let result: ExecutionResult;
         // TODO: update result branching logic
         log::debug!("run_ctx: {:?}", self.run_ctx);
-        if self.run_ctx.max_testcase_cnt() as u32 * self.time_limit < self.run_ctx.elapsed_time() {
+        if self.run_ctx.max_testcase_cnt() as u32 * self.time_limit * 1000 - 5 <= self.run_ctx.elapsed_time() {
             result = ExecutionResult::TimeLimitExceeded(
                 self.run_ctx.elapsed_time(),
                 self.run_ctx.max_testcase_cnt() as u32 * self.time_limit,
@@ -272,7 +272,10 @@ impl Executor {
             .iter()
             .map(|s| c_string!(s.as_str()))
             .collect::<Vec<_>>();
-        debug!("{:?}", command);
+        debug!("compile command: {:?}", command);
+        if command.is_empty() {
+            return Ok(())
+        }
 
         match unsafe { fork() } {
             Ok(ForkResult::Parent { child, .. }) => {
