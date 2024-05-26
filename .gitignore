@@ -21,3 +21,5 @@ tmp_*
 ## docker compose file
 /docker/docker-compose.yml
 
+## data
+backend/static
