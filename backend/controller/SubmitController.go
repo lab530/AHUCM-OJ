@@ -15,6 +15,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"time"
+  "fmt"
+  "bytes"
 )
 
 type SubmitRequest struct {
@@ -66,6 +68,8 @@ func Submit(context *gin.Context) {
 	helper.InitConfig()
 	languages := viper.GetStringSlice("common.languages")
 	suffix := viper.GetStringSlice("common.suffix")
+  os.MkdirAll("./static/code", 0755)
+
 	if len(request.Lang) > 0 {
 		// 如果提交的是 Code
 		index := -1
@@ -80,11 +84,12 @@ func Submit(context *gin.Context) {
 			// 获取毫秒
 			ms := request.Time.Round(time.Millisecond).Format(".000")
 			NewFileName := request.Time.Format("20060102150405") + ms[1:] + "." + fileSuffix
-			submit.SourcePath = "backend/static/code/" + NewFileName
-			err := SaveCodeToFile(request.Code, "./static/code/"+NewFileName)
+			submit.SourcePath = "./static/code/" + NewFileName
+			err := SaveCodeToFile(request.Code, submit.SourcePath)
 			if err != nil {
 				// 处理保存文件出错的情况
 				// 返回适当的错误响应
+        log.Println("Code file save failed.");
 				response.Response(context, http.StatusUnprocessableEntity, 422, nil, "代码保存失败")
 			}
 
@@ -115,9 +120,9 @@ func Submit(context *gin.Context) {
 		}
 		ms := request.Time.Round(time.Millisecond).Format(".000")
 		NewFileName := request.Time.Format("20060102150405") + ms[1:] + extension
-		err = context.SaveUploadedFile(file, "./static/code/"+NewFileName)
+		submit.SourcePath = "./static/code/" + NewFileName
+		err = context.SaveUploadedFile(file, submit.SourcePath)
 		//extension := filepath.Ext(file.Filename)
-		submit.SourcePath = "backend/static/code/" + NewFileName
 		if err != nil {
 			// 处理文件保存出错的情况
 			//response.Fail(context, nil, "文件存储失败")
@@ -125,7 +130,7 @@ func Submit(context *gin.Context) {
 			return
 		}
 	}
-	_, err := GetProblemDetailsByID(submit.ProblemId)
+	p, err := GetProblemDetailsByID(submit.ProblemId)
 	if err != nil {
 		response.Response(context, http.StatusBadRequest, 400, nil, "获取问题详情错误")
 		return
@@ -147,8 +152,31 @@ func Submit(context *gin.Context) {
 		response.Response(context, http.StatusBadRequest, 400, nil, "提交失败")
 		panic(err)
 	}
+
+  sourcePathAbs, _ := filepath.Abs(submit.SourcePath)
+  testcasesPathAbs, _ := filepath.Abs("../" + submit.TestcasesPath)   // trick: make . as ..
+  jsonBody := fmt.Sprintf(`{
+"source_path": "%s",
+"lang": "%s",
+"problem_id": %d,
+"mem_limit": %d,
+"time_limit": %d,
+"testcases_path": "%s",
+"submission_id": %d
+}`, sourcePathAbs, submit.Lang, submit.ProblemId, p.MemoLimit, p.TimeLimit, testcasesPathAbs, submit.ID)
+  log.Println(jsonBody)
+
+	coreHost := viper.GetStringSlice("core.host")[0]
+	corePort := viper.GetStringSlice("core.port")[0]
+  coreSubmitUrl := fmt.Sprintf("http://%s:%s/api/v1/submit", coreHost, corePort)
+  resp, err := http.Post(coreSubmitUrl, "application/json", bytes.NewBuffer([]byte(jsonBody)))
+  if err != nil {
+      log.Println("core no response!");
+  }
+  defer resp.Body.Close()
+
 	// 返回结果
-	response.Success(context, nil, "提交成功")
+  response.Success(context, nil, "提交成功")
 }
 
 func GetSubmitList(context *gin.Context) {
