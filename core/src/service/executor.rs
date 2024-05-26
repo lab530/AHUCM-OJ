@@ -1,7 +1,7 @@
 use std::{
     ffi::CString,
     fs::{self, File},
-    os::fd::FromRawFd, sync::Exclusive,
+    os::fd::FromRawFd,
 };
 
 use log::debug;
@@ -191,7 +191,9 @@ impl Executor {
     pub fn execute(&mut self) -> ExecutionResult {
         self.update_db(&ExecutionResult::Compiling);
         if let Err(e) = self.compile() {
-            return ExecutionResult::CompilationError(format!("{:?}", e));
+            let compilation_error = ExecutionResult::CompilationError(format!("{:?}", e));
+            self.update_db(&compilation_error);
+            return compilation_error;
         }
 
         self.update_db(&ExecutionResult::Compiling);
@@ -343,6 +345,7 @@ impl Executor {
                 loop {
                     tick += 1;
                     unsafe { wait4(child.as_raw(), &mut status, __WALL, &mut ruse) };
+                    log::debug!("pid: {:?}, status: {status}", child.as_raw());
                     if first {
                         unsafe { ptrace(PTRACE_SETOPTIONS, child.as_raw(), 0, PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACEEXIT) };
                         first = false;
@@ -483,9 +486,11 @@ impl Executor {
 
         match res {
             ExecutionResult::Accpected(_, _, _) => {}
+            ExecutionResult::WrongAnswer(_, _) => self.run_ctx.wrong_answer_cnt += 1,
             ExecutionResult::RuntimeError(_) => self.run_ctx.runtime_error_cnt += 1,
             ExecutionResult::OutputLimitExceeded => self.run_ctx.output_exceeded_cnt += 1,
-            ExecutionResult::TimeLimitExceeded(_, _) => self.run_ctx.mem_exceeded_cnt
+            ExecutionResult::TimeLimitExceeded(_, _) => self.run_ctx.mem_exceeded_cnt += 1,
+            _ => {}
         }
 
         Ok(())

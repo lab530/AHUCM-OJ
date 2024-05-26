@@ -3,7 +3,10 @@ use std::fs;
 use nix::sys::stat::stat;
 
 pub fn get_proc_status(pid: i32, mark: &str) -> Option<u32> {
-    let read = fs::read_to_string(format!("/proc/{pid}/status")).unwrap();
+    let read = match fs::read_to_string(format!("/proc/{pid}/status")) {
+        Ok(read) => read,
+        _ => return Some(0u32),
+    };
     let lines = read.split('\n');
 
     for line in lines {
