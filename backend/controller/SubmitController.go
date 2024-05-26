@@ -125,7 +125,7 @@ func Submit(context *gin.Context) {
 			return
 		}
 	}
-	p, err := GetProblemDetailsByID(submit.ProblemId)
+	_, err := GetProblemDetailsByID(submit.ProblemId)
 	if err != nil {
 		response.Response(context, http.StatusBadRequest, 400, nil, "获取问题详情错误")
 		return
@@ -136,8 +136,8 @@ func Submit(context *gin.Context) {
 		return
 	}
 	submit.TestcasesPath = path
-	submit.TimeLimit = p.TimeLimit
-	submit.MemoLimit = p.MemoLimit
+	submit.TimeUsed = 0
+	submit.MemoUsed = 0
 	log.Println(submit)
 
 	DB := common.GetDB()

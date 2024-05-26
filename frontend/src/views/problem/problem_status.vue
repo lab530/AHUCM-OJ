@@ -69,11 +69,11 @@
                 </template>
 
                 <template #cell(内存)="data">
-                  <div class="col-num" >{{ data.item.memo_limit }}</div>
+                  <div class="col-num" >{{ data.item.memo_used }}</div>
                 </template>
 
                 <template #cell(耗时)="data">
-                  <div class="col-num" >{{ data.item.time_limit }} ms</div>
+                  <div class="col-num" >{{ data.item.time_used }} ms</div>
                 </template>
 
                 <template #cell(语言)="data">
