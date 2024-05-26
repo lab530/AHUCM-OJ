@@ -18,7 +18,9 @@ pub async fn submit(form: Json<Submission>) -> impl Responder {
         form.testcases_path.clone(),
         form.submission_id,
     );
+    log::trace!("here");
     GLOB_THREAD_POOL.send_executor(executor);
+    log::trace!("here");
 
     HttpResponse::Ok()
 }
