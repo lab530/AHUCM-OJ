@@ -28,7 +28,9 @@ data() {
     idx: 0
   }
 },
-
+created(){
+    this.updateIndex(this.$route.path);
+},
 methods: {
     navigateTo(path, index) {
         if (this.$route.path !== path) {
@@ -39,6 +41,16 @@ methods: {
             const hasCategoryParam = 'category' in currentQuery;
             if(hasCategoryParam) this.$router.push(path);
         }
+    },
+    updateIndex(path) {
+        console.log(path);
+      if (path.includes('/problemset')) {
+        this.idx = 0;
+      } else if (path.includes('/problem/status')) {
+        this.idx = 1;
+      } else if (path.includes('/problem/rank')) {
+        this.idx = 2;
+      }
     },
 },
 };

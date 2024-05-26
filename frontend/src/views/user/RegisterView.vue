@@ -170,5 +170,8 @@ methods: {
 </script>
 
 <style lang="scss" scoped>
-
+.register{
+  max-width: 1300px;
+  margin: 100px auto;
+}
 </style>

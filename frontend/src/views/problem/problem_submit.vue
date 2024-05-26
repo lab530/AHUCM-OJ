@@ -81,9 +81,15 @@ export default {
                 solid: true,
                 appendToast:true,
                 });
+                const urlParams = new URLSearchParams(window.location.search);
+                const cid = urlParams.get('cid');
                 setTimeout(() => {
                 // 一秒后进行页面跳转
-                this.$router.push('/problem/status');
+                if(cid){
+                    this.$router.push('/contestsubmit?cid=' + cid)
+                } else {
+                    this.$router.push('/problem/status');
+                }
                 }, 1000);
             }).catch((error) => {
             this.$bvToast.toast(error.response.data.msg, {
@@ -124,3 +130,5 @@ p {
     justify-content: center;
 }
 </style>
+
+

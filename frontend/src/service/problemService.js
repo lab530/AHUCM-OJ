@@ -58,9 +58,15 @@ const edit = (params, { Title, UserId, Description, Input, Output, SimpleInput, 
     });
 };
 
+const problemStatics = (params) => {
+    return request.get('/problempass' + params)
+}
+
+
 export default {
     add,
     GetProblemList,
     GetProblem,
     edit,
+    problemStatics,
 };

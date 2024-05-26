@@ -162,10 +162,19 @@ export default {
 .box{
   margin-left: 200px;
   background-color: white;
+  background-image: url("../../../../public/bg.png");
+  background-repeat: repeat;
+  background-size: 150px 150px;
 }
 .article{
-    justify-content: center;
-    display: flex;
+  margin-top: 10px;
+  justify-content: center;
+  display: flex;
+  max-width: 800px;
+  margin: 0 auto;
+  border:1px  grey solid;
+  border-radius: 5px;
+  padding: 10px;
 }
 
 .problem_detail{
@@ -224,4 +233,5 @@ export default {
 .back{
   margin-right: 10px;
 }
+
 </style>

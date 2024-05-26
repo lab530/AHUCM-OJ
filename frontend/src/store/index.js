@@ -4,6 +4,7 @@ import userModule from './module/user'
 import problemModule from './module/problem'
 import submitModule from './module/submit';
 import adminModule from './module/admin';
+import contestModule from './module/contest';
 
 Vue.use(Vuex);
 
@@ -22,5 +23,6 @@ export default new Vuex.Store({
     problemModule,
     submitModule,
     adminModule,
+    contestModule,
   },
 });

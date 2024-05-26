@@ -12,7 +12,6 @@ import './assets/scss/index.scss';
 
 
 Vue.config.productionTip = false;
-
 // Vue.use(hljs)
 Vue.use(mavonEditor)
 Vue.use(BootstrapVue);

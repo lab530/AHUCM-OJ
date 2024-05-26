@@ -113,19 +113,20 @@ export default {
           UserPassword:'',
           NewPassword: '',
           UserIcon:[],
-          icon:'',
+          icon:'init.jpg',
           confirmPassword:'',
           IconUpload:'',
         },
       };
     },
   created() {
-    if (this.userInfo.user_icon) {
-      this.user.icon = this.userInfo.user_icon;
+    if (this.userInfo) {
+      this.user.icon = this.userInfo.user_icon ? this.userInfo.user_icon : "init.jpg";
       this.user.UserName = this.userInfo.user_name;
     }
   },
-  computed: mapState({
+  computed: {
+    ...mapState({
       userInfo: (state) => state.userModule.userInfo,
       validation() {
         return this.user.UserNickname.length >= 4 && this.user.UserNickname.length < 13
@@ -148,12 +149,13 @@ export default {
         return this.user.UserPassword == this.user.confirmPassword;
       }
   }),
+  },
   methods: {
     ...mapActions('userModule', { userEdit: 'edit'}),
     editProfile(){
     this.userEdit(this.user).then(() => {
         // 跳转请求成功
-        this.$router.replace({ name: 'profile' });
+          this.$router.replace({ name: 'profile' });
       }).catch((err) => {
         console.log(err)
         this.$bvToast.toast(err.response.data.msg, {

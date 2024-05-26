@@ -75,7 +75,19 @@ const adminModule = {
                 console.error('Request failed:', error);
                 throw error;
             }
-        }
+        },
+        async GetContestDetail({ commit }) {
+            try {
+                const params = window.location.search;
+                const response = await adminService.contestDetail(params);
+                return Promise.resolve(response);
+            } catch (error) {
+                // 在这里处理错误，比如打印错误日志或通知用户  
+                console.log(error)
+                console.error('Error adding problem:', error);
+                throw error; // 重新抛出错误，以便在调用处能够捕获到  
+            }
+        },
     },
 };
 

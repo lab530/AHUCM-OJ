@@ -33,7 +33,6 @@ export default {
   display: flex;  
   justify-content: center; /* 水平居中 */  
 }
-
 .bottom-component {
   /* position: fixed; 移除固定定位 */  
 width: 100%;

@@ -31,16 +31,16 @@
                     <b-form-input 
                     class="mb-2 mr-sm-2 mb-sm-0"
                     v-model="problem.TimeLimit"
-                    placeholder="单位 （S）">
+                    placeholder="单位 （ms）">
                     </b-form-input>
-                    <div class="mb-2 mr-sm-2 mb-sm-0"> S</div>
+                    <div class="mb-2 mr-sm-2 mb-sm-0"> ms</div>
                     <div>&nbsp;&nbsp;&nbsp;</div>
                     <b-form-input 
                     class="mb-2 mr-sm-2 mb-sm-0"
                     v-model="problem.MemoLimit"
-                    placeholder="单位 （MB）">
+                    placeholder="单位 （mb）">
                     </b-form-input>
-                    <div class="mb-2 mr-sm-2 mb-sm-0"> MB</div>
+                    <div class="mb-2 mr-sm-2 mb-sm-0"> mb</div>
                 </b-form>
             </div>
 
