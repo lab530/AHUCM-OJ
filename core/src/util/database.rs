@@ -41,7 +41,7 @@ impl Default for Database {
 
 impl Database {
     pub fn update_record(&mut self, id: u64, time: u32, mem: u32, status: i32) {
-        let query = format!("UPDATE {MAIN_TBL_NAME} SET (time_limit, memo_limit, status) = ($1, $2, $3) WHERE id = $4");
+        let query = format!("UPDATE {MAIN_TBL_NAME} SET (time_used, memo_used, status) = ($1, $2, $3) WHERE id = $4");
         let id = id as i64;
         let time = time as i64;
         let mem = mem as i64;

@@ -6,12 +6,23 @@ use std::{
 
 use log::debug;
 use nix::{
-    libc::{alarm, exit, fdopen, freopen, ptrace, rlimit, rusage, setrlimit, setrlimit64, wait4, PTRACE_KILL, PTRACE_O_TRACEEXIT, PTRACE_O_TRACESYSGOOD, PTRACE_SETOPTIONS, RLIMIT_AS, RLIMIT_CPU, RLIMIT_FSIZE, RLIMIT_NPROC, RLIMIT_STACK, SIGALRM, SIGCHLD, SIGKILL, SIGXCPU, SIGXFSZ, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, WEXITSTATUS, WIFEXITED, WIFSIGNALED, WTERMSIG, __WALL},
-    sys::wait::waitpid,
+    libc::{
+        alarm, exit, fdopen, freopen, ptrace, rlimit, rusage, setrlimit, setrlimit64, wait4,
+        PTRACE_KILL, PTRACE_O_TRACEEXIT, PTRACE_O_TRACESYSGOOD, PTRACE_SETOPTIONS, RLIMIT_AS,
+        RLIMIT_CPU, RLIMIT_FSIZE, RLIMIT_NPROC, RLIMIT_STACK, SIGALRM, SIGCHLD, SIGKILL, SIGXCPU,
+        SIGXFSZ, STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, WEXITSTATUS, WIFEXITED, WIFSIGNALED,
+        WTERMSIG, __WALL,
+    },
+    sys::wait::{self, waitpid},
     unistd::{execvp, fork, write, ForkResult},
 };
 
-use crate::util::{comparer::Comparer, config::GLOB_CONFIG, database::GLOB_DATABASE, unix::{get_file_size, get_proc_status}};
+use crate::util::{
+    comparer::Comparer,
+    config::GLOB_CONFIG,
+    database::GLOB_DATABASE,
+    unix::{get_file_size, get_proc_status},
+};
 
 use super::testcases_getter::TestcasesGetter;
 
@@ -53,24 +64,24 @@ pub enum ExecutionResult {
     RuntimeError(String),
     TimeLimitExceeded(u32, u32),
     MemoLimitExceeded(u32, u32),
-	OutputLimitExceeded,
+    OutputLimitExceeded,
     UnknownError(String),
 }
 
 /*
-	Pending 0
-	PendingRejudge 1
-	Compiling 2
-	Running 3
-	Accepted 4
-	PresentationError 5
-	WrongAnswer 6
-	TimeLimitExceeded 7
-	MemoryLimitExceeded 8
-	OutputLimitExceeded 9
-	RuntimeError 10
-	CompileError 11
-	UnknownError 12
+    Pending 0
+    PendingRejudge 1
+    Compiling 2
+    Running 3
+    Accepted 4
+    PresentationError 5
+    WrongAnswer 6
+    TimeLimitExceeded 7
+    MemoryLimitExceeded 8
+    OutputLimitExceeded 9
+    RuntimeError 10
+    CompileError 11
+    UnknownError 12
 * */
 
 impl From<&ExecutionResult> for i32 {
@@ -92,7 +103,7 @@ impl From<&ExecutionResult> for i32 {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct RunContext {
     pub max_testcase_cnt: usize,
     pub run_testcase_cnt: usize,
@@ -213,6 +224,7 @@ impl Executor {
 
         let result: ExecutionResult;
         // TODO: update result branching logic
+        log::debug!("run_ctx: {:?}", self.run_ctx);
         if self.run_ctx.max_testcase_cnt() as u32 * self.time_limit < self.run_ctx.elapsed_time() {
             result = ExecutionResult::TimeLimitExceeded(
                 self.run_ctx.elapsed_time(),
@@ -225,7 +237,12 @@ impl Executor {
                 self.run_ctx.used_memory(),
                 self.run_ctx.max_testcase_cnt() as u32 * self.mem_limit,
             );
-        } else if self.run_ctx.wrong_answer_cnt() != 0 {
+        } else if self.run_ctx.runtime_error_cnt != 0 {
+            result = ExecutionResult::RuntimeError(format!(
+                "runtime error cnt: {}",
+                self.run_ctx.runtime_error_cnt
+            ));
+        } else if self.run_ctx.wrong_answer_cnt() == 0 {
             result = ExecutionResult::Accpected(
                 self.run_ctx.max_testcase_cnt(),
                 self.run_ctx.elapsed_time(),
@@ -263,7 +280,10 @@ impl Executor {
             }
             Ok(ForkResult::Child) => {
                 let cpu = 50u32;
-                let rlim_cpu = rlimit { rlim_cur: cpu as u64, rlim_max: cpu as u64 };
+                let rlim_cpu = rlimit {
+                    rlim_cur: cpu as u64,
+                    rlim_max: cpu as u64,
+                };
                 unsafe {
                     setrlimit(RLIMIT_CPU, &rlim_cpu);
                     alarm(0);
@@ -275,13 +295,19 @@ impl Executor {
                 }
 
                 let fsize = 500 * UNIT_MB;
-                let rlim_fsize = rlimit { rlim_cur: fsize, rlim_max: fsize };
+                let rlim_fsize = rlimit {
+                    rlim_cur: fsize,
+                    rlim_max: fsize,
+                };
                 unsafe { setrlimit(RLIMIT_FSIZE, &rlim_fsize) };
 
                 let mem = UNIT_MB << 12;
-                let rlim_as = rlimit { rlim_cur: mem, rlim_max: mem };
+                let rlim_as = rlimit {
+                    rlim_cur: mem,
+                    rlim_max: mem,
+                };
                 unsafe { setrlimit(RLIMIT_AS, &rlim_as) };
- 
+
                 let log_path = c_string!(self.log_path.as_str());
                 let w_mode = c_string!("w");
 
@@ -341,108 +367,159 @@ impl Executor {
                 let mut first = true;
                 let mut tick: usize = 0;
 
+                let total_time_limit = self.run_ctx.max_testcase_cnt as u32 * self.time_limit;
+
                 let std_output_size = get_file_size(output_path);
-                loop {
-                    tick += 1;
-                    unsafe { wait4(child.as_raw(), &mut status, __WALL, &mut ruse) };
-                    log::debug!("pid: {:?}, status: {status}", child.as_raw());
-                    if first {
-                        unsafe { ptrace(PTRACE_SETOPTIONS, child.as_raw(), 0, PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACEEXIT) };
-                        first = false;
-                    }
+                if total_time_limit + 1 > self.run_ctx.elapsed_time() {
+                    loop {
+                        tick += 1;
+                        let wait_ret =
+                            unsafe { wait4(child.as_raw(), &mut status, __WALL, &mut ruse) };
+                        if wait_ret < 0 {
+                            break;
+                        }
+                        log::debug!("pid: {:?}, status: {status}", child.as_raw());
+                        if first {
+                            unsafe {
+                                ptrace(
+                                    PTRACE_SETOPTIONS,
+                                    child.as_raw(),
+                                    0,
+                                    PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACEEXIT,
+                                )
+                            };
+                            first = false;
+                        }
 
-                    let temp = get_proc_status(child.as_raw(), "VmPeak:").unwrap() as u64;
-                    log::debug!("temp: {}", temp);
-                    if temp > self.mem_limit as u64 * UNIT_MB {
-                        unsafe { ptrace(PTRACE_KILL, child.as_raw(), 0, 0) };
-                        res = ExecutionResult::MemoLimitExceeded(temp as u32, self.mem_limit);
-                        break;
-                    }
-                    if temp > self.run_ctx.used_memory as u64 {
-                        self.run_ctx.used_memory = temp as u32;
-                    }
+                        let temp = get_proc_status(child.as_raw(), "VmPeak:").unwrap() as u64;
+                        log::debug!("temp: {}", temp);
+                        if temp > self.mem_limit as u64 * UNIT_MB {
+                            unsafe { ptrace(PTRACE_KILL, child.as_raw(), 0, 0) };
+                            res = ExecutionResult::MemoLimitExceeded(temp as u32, self.mem_limit);
+                            break;
+                        }
+                        if temp > self.run_ctx.used_memory as u64 {
+                            self.run_ctx.used_memory = temp as u32;
+                        }
 
-                    // runtime error: ret val is not 0
-                    if WIFEXITED(status) && WEXITSTATUS(status) != 0 {
-                        res = ExecutionResult::RuntimeError("111".into());
-                        break;
-                    }
+                        // runtime error: ret val is not 0
+                        if WIFEXITED(status) {
+                            if WEXITSTATUS(status) != 0 {
+                                res = ExecutionResult::RuntimeError("111".into());
+                            }
+                            break;
+                        }
 
-                    if tick % 250 == 0 {
-                        // output size is greater than double of standard output's or stderr
-                        if get_file_size(&redirect_stdout_path) > std_output_size * 2 || get_file_size(&redirect_stderr_path) > 0 {
-                            unsafe { ptrace(PTRACE_KILL, child.as_raw(), 0, 0)};
-                            res = ExecutionResult::RuntimeError("222".into());
+                        if tick % 250 == 0 {
+                            // output size is greater than double of standard output's or stderr
+                            if get_file_size(&redirect_stdout_path) > std_output_size * 2
+                                || get_file_size(&redirect_stderr_path) > 0
+                            {
+                                unsafe { ptrace(PTRACE_KILL, child.as_raw(), 0, 0) };
+                                res = ExecutionResult::RuntimeError("222".into());
+                                break;
+                            }
+                        }
+
+                        let exitcode = WEXITSTATUS(status) % 256;
+                        if exitcode != 0
+                            && exitcode != 5
+                            && exitcode != 17
+                            && exitcode != 23
+                            && exitcode != 133
+                        {
+                            if exitcode == SIGCHLD || exitcode == SIGALRM {
+                                unsafe { alarm(0) };
+                                res = ExecutionResult::RuntimeError("333".into());
+                                self.run_ctx.elapsed_time = self.time_limit;
+                            } else if exitcode == SIGKILL || exitcode == SIGXCPU {
+                                res = ExecutionResult::RuntimeError("444".into());
+                                self.run_ctx.elapsed_time = self.time_limit;
+                            } else if exitcode == SIGXFSZ {
+                                res = ExecutionResult::OutputLimitExceeded;
+                            } else {
+                                res = ExecutionResult::RuntimeError("555".into());
+                                self.run_ctx.elapsed_time = self.time_limit;
+                            }
+                            unsafe { ptrace(PTRACE_KILL, child.as_raw(), 0, 0) };
+                            break;
+                        }
+
+                        if WIFSIGNALED(status) {
+                            let sig = WTERMSIG(status);
+
+                            if sig == SIGCHLD || sig == SIGALRM {
+                                unsafe { alarm(0) };
+                                // res = ExecutionResult::RuntimeError("666".into());
+                            } else if sig == SIGKILL || sig == SIGXCPU {
+                                res = ExecutionResult::RuntimeError("777".into());
+                            } else if sig == SIGXFSZ {
+                                res = ExecutionResult::OutputLimitExceeded;
+                            } else {
+                                res = ExecutionResult::RuntimeError("888".into());
+                            }
                             break;
                         }
                     }
-
-                    let exitcode = WEXITSTATUS(status) % 256;
-                    if exitcode != 0 && exitcode != 5 && exitcode != 17 && exitcode != 23 && exitcode != 133 {
-                        if exitcode == SIGCHLD || exitcode == SIGALRM {
-                            unsafe { alarm(0) };
-                            res = ExecutionResult::RuntimeError("333".into());
-                            self.run_ctx.elapsed_time = self.time_limit;
-                        } else if exitcode == SIGKILL || exitcode == SIGXCPU {
-                            res = ExecutionResult::RuntimeError("444".into());
-                            self.run_ctx.elapsed_time = self.time_limit;
-                        } else if exitcode == SIGXFSZ {
-                            res = ExecutionResult::OutputLimitExceeded;
-                            self.run_ctx.output_exceeded_cnt += 1;
-                        } else {
-                            res = ExecutionResult::RuntimeError("555".into());
-                            self.run_ctx.elapsed_time = self.time_limit;
-                        }
-                        unsafe { ptrace(PTRACE_KILL, child.as_raw(), 0, 0)};
-                        break;
-                    }
-
-                    if WIFSIGNALED(status) {
-                        let sig = WTERMSIG(status);
-
-                        if sig == SIGCHLD || sig == SIGALRM {
-                            unsafe { alarm(0) };
-                            res = ExecutionResult::RuntimeError("666".into());
-                            self.run_ctx.runtime_error_cnt += 1;
-                        } else if sig == SIGKILL || sig == SIGXCPU {
-                            res = ExecutionResult::RuntimeError("777".into());
-                            self.run_ctx.runtime_error_cnt += 1;
-                        } else if sig == SIGXFSZ {
-                            res = ExecutionResult::OutputLimitExceeded;
-                            self.run_ctx.output_exceeded_cnt += 1;
-                        } else {
-                            res = ExecutionResult::RuntimeError("888".into());
-                            self.run_ctx.runtime_error_cnt += 1;
-                        }
-                        break;
-                    }
+                } else {
+                    res = ExecutionResult::TimeLimitExceeded(
+                        self.run_ctx.elapsed_time(),
+                        total_time_limit,
+                    );
                 }
-                
+
                 unsafe { ptrace(PTRACE_KILL, child.as_raw(), 0, 0) };
 
                 if res == ExecutionResult::Halt {
-                    self.run_ctx.elapsed_time += (ruse.ru_utime.tv_sec * 1000 + ruse.ru_utime.tv_usec / 1000 + ruse.ru_stime.tv_sec * 1000 + ruse.ru_stime.tv_usec / 1000) as u32;
+                    self.run_ctx.elapsed_time += (ruse.ru_utime.tv_sec * 1000
+                        + ruse.ru_utime.tv_usec / 1000
+                        + ruse.ru_stime.tv_sec * 1000
+                        + ruse.ru_stime.tv_usec / 1000)
+                        as u32;
                 }
             }
             Ok(ForkResult::Child) => {
-                let time = self.time_limit - self.run_ctx.elapsed_time() + 1;
-                let rlim_cpu = rlimit { rlim_cur: time as u64, rlim_max: time as u64 + 1 };
+                let total_time_limit = self.run_ctx.max_testcase_cnt as u32 * self.time_limit;
+                if total_time_limit + 1 < self.run_ctx.elapsed_time() {
+                    unsafe { exit(0) };
+                }
+                let time = total_time_limit + 1 - self.run_ctx.elapsed_time();
+                let rlim_cpu = rlimit {
+                    rlim_cur: time as u64,
+                    rlim_max: time as u64 + 1,
+                };
                 unsafe {
                     setrlimit(RLIMIT_CPU, &rlim_cpu);
                     alarm(0);
-                    alarm(if self.time_limit > 1 { self.time_limit } else { 1 });
+                    alarm(if total_time_limit > 1 {
+                        total_time_limit
+                    } else {
+                        1
+                    });
                 }
 
-                let rlim_fsize = rlimit { rlim_cur: FSIZE_LIM, rlim_max: FSIZE_LIM + UNIT_MB };
+                let rlim_fsize = rlimit {
+                    rlim_cur: FSIZE_LIM,
+                    rlim_max: FSIZE_LIM + UNIT_MB,
+                };
                 unsafe { setrlimit(RLIMIT_FSIZE, &rlim_fsize) };
 
-                let rlim_proc = rlimit { rlim_cur: PROC_LIM, rlim_max: PROC_LIM };
+                let rlim_proc = rlimit {
+                    rlim_cur: PROC_LIM,
+                    rlim_max: PROC_LIM,
+                };
                 unsafe { setrlimit(RLIMIT_NPROC, &rlim_proc) };
 
-                let rlim_stack = rlimit { rlim_cur: UNIT_MB << 8, rlim_max: UNIT_MB << 8 };
+                let rlim_stack = rlimit {
+                    rlim_cur: UNIT_MB << 8,
+                    rlim_max: UNIT_MB << 8,
+                };
                 unsafe { setrlimit(RLIMIT_STACK, &rlim_stack) };
 
-                let rlim_mem = rlimit { rlim_cur: self.mem_limit as u64 / 2 * 3 * UNIT_MB, rlim_max: self.mem_limit as u64 * 2 * UNIT_MB };
+                let rlim_mem = rlimit {
+                    rlim_cur: self.mem_limit as u64 / 2 * 3 * UNIT_MB,
+                    rlim_max: self.mem_limit as u64 * 2 * UNIT_MB,
+                };
                 unsafe { setrlimit(RLIMIT_AS, &rlim_mem) };
 
                 let input_path = c_string!(input_path);
@@ -477,9 +554,10 @@ impl Executor {
         self.run_ctx.run_testcase_cnt += 1;
         if res == ExecutionResult::Halt {
             if let Err(e) = Comparer::compare_two_files(output_path, &redirect_stdout_path) {
-                debug!("{:?}", e);
+                log::debug!("{:?}", e);
                 res = ExecutionResult::WrongAnswer(1, 1);
             } else {
+                log::debug!("Two files are same!");
                 res = ExecutionResult::Accpected(1, 1, 1);
             }
         }
@@ -487,7 +565,10 @@ impl Executor {
         match res {
             ExecutionResult::Accpected(_, _, _) => {}
             ExecutionResult::WrongAnswer(_, _) => self.run_ctx.wrong_answer_cnt += 1,
-            ExecutionResult::RuntimeError(_) => self.run_ctx.runtime_error_cnt += 1,
+            ExecutionResult::RuntimeError(e) => {
+                log::warn!("testcase runtime error: {:?}", e);
+                self.run_ctx.runtime_error_cnt += 1;
+            }
             ExecutionResult::OutputLimitExceeded => self.run_ctx.output_exceeded_cnt += 1,
             ExecutionResult::TimeLimitExceeded(_, _) => self.run_ctx.mem_exceeded_cnt += 1,
             _ => {}

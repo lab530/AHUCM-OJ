@@ -18,6 +18,7 @@ pub struct Config {
     compile_commands: BTreeMap<String, Vec<String>>,
     run_commands: BTreeMap<String, Vec<String>>,
     compiler_output_channels: BTreeMap<String, &'static str>,
+    port: String,
 }
 
 impl Config {
@@ -56,6 +57,20 @@ impl Config {
             }
         } else {
             return Some("wrong config format, [sql] should be a table".into());
+        }
+
+        let core = match root.get("core") {
+            Some(v) => v,
+            _ => return Some("wrong config format, missing core".into()),
+        };
+        let port = match core.get("port") {
+            Some(v) => v,
+            _ => return Some("wrong config format, missing core.port".into()),
+        };
+        if let toml::Value::String(port) = port {
+            self.port = port.clone();
+        } else {
+            self.port = "6000".into();
         }
 
         let common = match root.get("common") {
@@ -242,5 +257,9 @@ impl Config {
 
     pub fn get_compiler_output_channel(&self, lang: &str) -> Option<&str> {
         self.compiler_output_channels.get(lang).map(|s| *s)
+    }
+
+    pub fn get_port(&self) -> &str {
+        return &self.port;
     }
 }
