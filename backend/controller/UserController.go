@@ -233,6 +233,8 @@ func UpdateUserInfo(context *gin.Context) {
 	}
 	// 返回结果
 	DB.Model(&model.User{}).Where("id = ?", UserInfo.ID).Updates(UserInfo)
+	//time.Sleep(time.Second * 2) // 暂停2秒,写文件需要时间，不暂停的话，前端找不到资源，会出错
+	// 已在前端停秒
 	response.Success(context, gin.H{"user": requestUser}, "用户信息修改成功")
 }
 

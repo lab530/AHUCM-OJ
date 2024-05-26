@@ -3,6 +3,7 @@ package controller
 import (
 	"backend/common"
 	"backend/define"
+	"backend/global"
 	"backend/helper"
 	"backend/model"
 	"backend/response"
@@ -121,6 +122,60 @@ func ProblemRevise(context *gin.Context) {
 	}
 	// 返回结果
 	response.Success(context, nil, "题目添加成功")
+}
+
+func GetProblemPass(context *gin.Context) {
+	db := common.GetDB()
+	pid := context.Query("pid")
+	cid := context.Query("cid")
+
+	var statuses []struct {
+		Status string `json:"value"`
+		Count  int64  `json:"name"`
+	}
+
+	// 如果 cid 不为空,则从 contest_submit 表中查找
+	if cid != "" {
+		var submitIds []int64
+		db.Model(&model.ContestSubmit{}).
+			Where("contest_id = ?", cid).
+			Pluck("submit_id", &submitIds)
+		result := db.Model(&model.Submission{}).
+			Where("problem_id = ? AND id IN (?)", pid, submitIds).
+			Select("CAST(status AS CHAR) AS status, COUNT(*) AS count").
+			Group("status").
+			Scan(&statuses)
+
+		if result.Error != nil {
+			response.Response(context, http.StatusUnprocessableEntity, 422, nil, "获取题目数据失败")
+			panic("failed to query submissions")
+			return
+		}
+	} else {
+		// 如果 cid 为空,则从 submission 表中查找
+		result := db.Model(&model.Submission{}).
+			Where("problem_id = ?", pid).
+			Select("CAST(status AS CHAR) AS status, COUNT(*) AS count").
+			Group("status").
+			Scan(&statuses)
+
+		if result.Error != nil {
+			response.Response(context, http.StatusUnprocessableEntity, 422, nil, "获取题目数据失败")
+			panic("failed to query submissions")
+			return
+		}
+	}
+
+	// 将数字状态码转换为对应的状态描述
+	for i := range statuses {
+		if status, ok := global.ExecutionResultToString[global.ExecutionResult(helper.StringToInt(statuses[i].Status))]; ok {
+			statuses[i].Status = status
+		} else {
+			statuses[i].Status = "Unknown"
+		}
+	}
+
+	response.Success(context, gin.H{"data": statuses}, "获取数据成功")
 }
 
 func GetProblemDetail(context *gin.Context) {

@@ -1,9 +1,9 @@
 import request from '@/utils/request'
-import Contest from '@/views/admin/contest.vue';
+
 
 // 获取问题详情
 const GetTestCaseList = (params) => {
-    return request.get('admin/testcase' + params)
+    return request.get('admin/testCase' + params)
 }
 
 const UploadFile = (params, selectedFiles) => {
@@ -15,7 +15,7 @@ const UploadFile = (params, selectedFiles) => {
         formData.append('files[]', file);
     }
 
-    return request.post('admin/uploadcase' + params, formData, {
+    return request.post('admin/uploadCase' + params, formData, {
         headers: {
             'Content-Type': 'multipart/form-data'
         }
@@ -23,22 +23,28 @@ const UploadFile = (params, selectedFiles) => {
 }
 
 const Delete = (params, FileName) => {
-    return request.delete('admin/deletecase' + params + "&fname=" + FileName);
+    return request.delete('admin/deleteCase' + params + "&fname=" + FileName);
 }
 
 const GetInfo = (params) => {
-    return request.get('admin/casedetail' + params);
+    return request.get('admin/caseDetail' + params);
+}
+
+const contestDetail = (params) => {
+    return request.get('/contestdetail' + params);
 }
 
 const Update = (params, content) => {
     const formData = new FormData();
     formData.append('content', content);
-    return request.put('admin/updatacase' + params, formData, {
+    return request.put('admin/updateCase' + params, formData, {
         headers: {
             'Content-Type': 'multipart/form-data'
         }
     });
 }
+
+
 
 export default {
     GetTestCaseList,
@@ -46,4 +52,5 @@ export default {
     Delete,
     GetInfo,
     Update,
+    contestDetail,
 };

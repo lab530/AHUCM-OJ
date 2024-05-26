@@ -214,6 +214,7 @@ export default {
   justify-content: space-between;
 }
 .upload{
+  margin-left: 2px;
   display: flex;
   margin-bottom:20px;
 }

@@ -1,6 +1,7 @@
 package common
 
 import (
+	"backend/migrations"
 	"backend/model"
 	"fmt"
 	"github.com/spf13/viper"
@@ -52,4 +53,14 @@ func CreateTable(DB *gorm.DB) {
 	DB.AutoMigrate(&model.Submission{})
 	DB.AutoMigrate(&model.ProblemCategory{})
 	DB.AutoMigrate(&model.Category{})
+	DB.AutoMigrate(&model.Contest{})
+	DB.AutoMigrate(&model.ContestProblem{})
+	DB.AutoMigrate(&model.ContestUser{})
+	DB.AutoMigrate(&model.ContestSubmit{})
+	DB.AutoMigrate(&model.ContestRank{})
+	if err := migrations.CreateTrigger(DB); err != nil {
+		log.Println("触发器迁移失败")
+		panic(err)
+		return
+	}
 }

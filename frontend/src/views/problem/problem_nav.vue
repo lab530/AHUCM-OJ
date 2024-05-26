@@ -33,17 +33,18 @@ export default {
         queryParams: getCurrentQueryParams(),
         pathName: getPathName(),
     }
-  },
-  created() {
+    },
+    created() {
+    this.updateIndex(this.$route.path)
     if (Object.keys(this.queryParams).length === 0) {
-      setTimeout(() => {
+        setTimeout(() => {
         this.goBack();
-      }, 3000);
+        }, 3000);
     }
-  },
-  methods: {
+    },
+    methods: {
     goBack() {
-      this.$router.go(-1);
+        this.$router.go(-1);
     },
     ShowContent(index){
         this.idx = index;
@@ -52,10 +53,19 @@ export default {
             path = '/submit';
         }
         if (this.$route.path !== path) {  
-            this.$router.push(path+'?pid='+this.pid);  
+            const queryParams = window.location.search;
+            this.$router.push(path + queryParams);  
         }  
     },
-  }
+    updateIndex(path) {
+        console.log(path);
+        if (path.includes('/submit')) {
+        this.idx = 1;
+        } else {
+        this.idx = 0;
+        }
+    },
+    }
 }
 </script>
 <style scoped>
@@ -94,6 +104,7 @@ export default {
     align-content: center;
     font-size: 14px;
     position: relative;
+    cursor: pointer;
 }
 
 .nav li{

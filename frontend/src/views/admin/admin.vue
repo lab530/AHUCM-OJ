@@ -3,19 +3,19 @@
 <div>
 <div class = "header">AHUCM Online Judge Backstage management </div>
   <div class = "manage">
-    <div class="nav">
-      <div class = "list">
-        <div @click="navigateTo('/', 0)"> OJ 首页 </div>
-        <div :class="{'active' : idx === 1}" @click="navigateTo('/admin', 1)">管理中心</div>
-        <div :class="{'active' : idx === 2}" @click="navigateTo('/admin/new', 2)"><p>新闻管理</p></div>
-        <div :class="{'active' : idx === 3}" @click="navigateTo('/admin/user', 3)"><p>用户管理</p></div>
-        <div :class="{'active' : idx === 4}" @click="navigateTo('/admin/problem', 4)"><p>问题管理</p></div>
-        <div :class="{'active' : idx === 5}" @click="navigateTo('/admin/contest', 5)"><p>竞赛管理</p></div>
-        <div :class="{'active' : idx === 6}" @click="navigateTo('/admin/system', 6)"><p>系统管理</p></div>
+      <div class="nav">
+        <div class = "list">
+          <div @click="navigateTo('/', 0)"> OJ 首页 </div>
+          <div :class="{'active' : idx === 1}" @click="navigateTo('/admin', 1)">管理中心</div>
+          <div :class="{'active' : idx === 2}" @click="navigateTo('/admin/new', 2)"><p>新闻管理</p></div>
+          <div :class="{'active' : idx === 3}" @click="navigateTo('/admin/user', 3)"><p>用户管理</p></div>
+          <div :class="{'active' : idx === 4}" @click="navigateTo('/admin/problem', 4)"><p>问题管理</p></div>
+          <div :class="{'active' : idx === 5}" @click="navigateTo('/admin/contest', 5)"><p>竞赛管理</p></div>
+          <div :class="{'active' : idx === 6}" @click="navigateTo('/admin/system', 6)"><p>系统管理</p></div>
+        </div>
       </div>
-    </div>
-    <router-view class="router"/>
-</div>
+      <router-view class="router"/>
+  </div>
 </div>
 
 
@@ -58,10 +58,12 @@ methods: {
 }
 .manage {
   margin-top: 50px;
+  height: 100%;
   display: flex;
 }
 .list {
   margin-top: 50px;
+  cursor: pointer;
 }
 .nav {
   position: fixed;

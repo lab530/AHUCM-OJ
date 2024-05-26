@@ -6,6 +6,7 @@ import userRoutes from './module/user';
 import blogRoutes from './module/blog';
 import problemRoutes from './module/problem';
 import adminRoutes from './module/admin';
+import contestRoutes from './module/contest';
 
 
 Vue.use(VueRouter);
@@ -28,6 +29,7 @@ const routes = [
   ...blogRoutes,
   ...problemRoutes,
   ...adminRoutes,
+  ...contestRoutes,
 ];
 
 

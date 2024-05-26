@@ -62,6 +62,17 @@ const problemModule = {
                 throw error; // 重新抛出错误，以便在调用处能够捕获到  
             }
         },
+        async SubmitStatics({ commit }) {
+            try {
+                const queryParams = window.location.search;
+                const response = await problemService.problemStatics(queryParams);
+                return response;
+            } catch (error) {
+                // 在这里处理错误，比如打印错误日志或通知用户  
+                console.error('Error adding problem:', error);
+                throw error; // 重新抛出错误，以便在调用处能够捕获到  
+            }
+        },
     },
 };
 

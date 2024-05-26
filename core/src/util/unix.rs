@@ -5,7 +5,10 @@ use nix::sys::stat::stat;
 pub fn get_proc_status(pid: i32, mark: &str) -> Option<u32> {
     let read = match fs::read_to_string(format!("/proc/{pid}/status")) {
         Ok(read) => read,
-        _ => return Some(0u32),
+        _ => {
+            log::warn!("can't read /proc/{pid}/status!");
+            return Some(0u32);
+        }
     };
     let lines = read.split('\n');
 
