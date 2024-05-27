@@ -23,7 +23,7 @@
               <em>{{ userInfo.user_name }}</em>
           </template>
           <b-dropdown-item @click="navigateTo('/profile')">个人中心</b-dropdown-item>
-          <b-dropdown-item @click="navigateTo('/admin')">后台管理</b-dropdown-item>
+          <b-dropdown-item v-show="userInfo.permission_id > 0" @click="navigateTo('/admin')">后台管理</b-dropdown-item>
           <b-dropdown-item @click="logout">注销</b-dropdown-item>
           
           </b-nav-item-dropdown>
@@ -58,6 +58,7 @@ computed: {
     userInfo: (state) => state.userInfo,
   }),
   computedUserIcon() {
+    console.log(this.userInfo)
     if (this.userInfo.user_icon != "") {
       return this.userInfo.user_icon;
     }

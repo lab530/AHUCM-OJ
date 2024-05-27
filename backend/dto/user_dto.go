@@ -1,6 +1,8 @@
 package dto
 
-import "backend/model"
+import (
+	"backend/model"
+)
 
 type UserDto struct {
 	ID           uint   `json:"id"`
@@ -19,5 +21,6 @@ func ToUserDto(user model.User) UserDto {
 		UserNickname: user.UserNickname,
 		UserEmail:    user.UserEmail,
 		UserIcon:     user.UserIcon,
+		PermissionId: user.PermissionId,
 	}
 }
