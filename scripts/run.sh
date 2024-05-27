@@ -11,10 +11,10 @@ else
     (cd ../docker && sudo docker-compose up) | tee -a docker-compose.log &
 fi
 
-(cd ../core && RUST_LOG=debug cargo run) | tee -a core.log &
-
-(cd ../backend && go mod tidy && go run main.go) | tee -a backend.log &
-
-(cd ../frontend && npm install && npm run dev) | tee -a frontend.log &
+# (cd ../core && RUST_LOG=debug cargo run) | tee -a core.log &
+#
+# (cd ../backend && go mod tidy && go run main.go) | tee -a backend.log &
+#
+# (cd ../frontend && npm install && npm run dev) | tee -a frontend.log &
 
 wait

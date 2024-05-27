@@ -207,7 +207,7 @@ impl Executor {
             return compilation_error;
         }
 
-        self.update_db(&ExecutionResult::Compiling);
+        self.update_db(&ExecutionResult::Running);
         let mut testcase_getter = TestcasesGetter::new(self.testcases_path.clone());
         let testcases = testcase_getter.get_testcases();
         // self.run_ctx
@@ -225,7 +225,8 @@ impl Executor {
         let result: ExecutionResult;
         // TODO: update result branching logic
         log::debug!("run_ctx: {:?}", self.run_ctx);
-        if self.run_ctx.max_testcase_cnt() as u32 * self.time_limit * 1000 - 5 <= self.run_ctx.elapsed_time() {
+        const TOLERENCE: u32 = 20;
+        if self.run_ctx.max_testcase_cnt() as u32 * self.time_limit * 1000 - TOLERENCE <= self.run_ctx.elapsed_time() {
             result = ExecutionResult::TimeLimitExceeded(
                 self.run_ctx.elapsed_time(),
                 self.run_ctx.max_testcase_cnt() as u32 * self.time_limit,

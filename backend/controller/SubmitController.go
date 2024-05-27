@@ -171,7 +171,7 @@ func Submit(context *gin.Context) {
 "time_limit": %d,
 "testcases_path": "%s",
 "submission_id": %d
-}`, sourcePathAbs, submit.Lang, submit.ProblemId, p.MemoLimit, p.TimeLimit, testcasesPathAbs, submit.ID)
+}`, sourcePathAbs, submit.Lang, submit.ProblemId, p.MemoLimit, p.TimeLimit / 1000, testcasesPathAbs, submit.ID)
   log.Println(jsonBody)
 
 	coreHost := viper.GetStringSlice("core.host")[0]
