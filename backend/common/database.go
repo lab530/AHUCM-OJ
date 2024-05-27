@@ -5,6 +5,7 @@ import (
 	"backend/model"
 	"fmt"
 	"github.com/spf13/viper"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"log"
@@ -63,4 +64,40 @@ func CreateTable(DB *gorm.DB) {
 		panic(err)
 		return
 	}
+	CheckAndAddAdminUser(DB)
+}
+
+// 添加默认的 admin
+func CheckAndAddAdminUser(db *gorm.DB) error {
+	// 假设User模型有一个IsAdmin字段或者类似的字段来标识管理员
+	var adminUser model.User
+	// 查找IsAdmin为true的用户（或者根据其他条件查找）
+	result := db.Where("user_name = ?", "admin").First(&adminUser)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			// 如果没有找到管理员用户，则添加一个新的
+			Password := "adminn" // 替换为你的哈希密码
+			/* 密码加密 */
+			hasedPassword, err := bcrypt.GenerateFromPassword([]byte(Password), bcrypt.DefaultCost)
+			if err != nil {
+				log.Println("密码加密错误")
+				return err
+			}
+			admin := model.User{
+				UserName:     "admin",
+				UserNickname: "admin",
+				UserEmail:    "admin",
+				UserPassword: string(hasedPassword),
+				PermissionId: 1,
+				// ... 其他字段
+			}
+			if err := db.Create(&admin).Error; err != nil {
+				return err // 返回错误
+			}
+			log.Println("Admin user created successfully")
+		} else {
+			return result.Error // 返回其他数据库错误
+		}
+	}
+	return nil // 管理员用户已存在或成功添加
 }

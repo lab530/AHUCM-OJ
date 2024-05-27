@@ -10,8 +10,8 @@ type Submission struct {
 	gorm.Model                           // 包含 `ID`, `CreatedAt`, `UpdatedAt`, `DeletedAt` 字段
 	ProblemId     uint64                 `json:"problem_id" gorm:"type:int;"`
 	UserId        uint64                 `json:"user_id" gorm:"type:int;"`
-	TimeUsed      uint32                 `json:"time_used" gorm:"type=int;not null"`
-	MemoUsed      uint32                 `json:"memo_used" gorm:"type=int;not null"`
+	TimeUsed      uint32                 `json:"time_used" gorm:"type=int"`
+	MemoUsed      uint32                 `json:"memo_used" gorm:"type=int"`
 	SubmitTime    time.Time              `json:"submit_time" gorm:"not null"`
 	Lang          string                 `json:"lang" gorm:"type=varchar(255);not null"`
 	SourcePath    string                 `json:"source_path" gorm:"type=varchar(255);not null"`
