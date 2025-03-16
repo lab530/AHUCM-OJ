@@ -1,48 +1,60 @@
 <template>
-    <div class = "box">
-        <div class="problemList">
-            <b-card class="button">
-                <b-button @click="$router.push('/admin/problem/add')" variant="primary">添加问题</b-button>
-            </b-card>
-            <b-card>
-                <div class="overflow-auto">
-                    <b-table
-                    id="my-table"
-                    striped hover 
-                    :items="items"
-                    :fields="fields"
-                    :per-page="perPage"
-                    :current-page="currentPage"
-                    
-                    >
-                    <template #cell(题目编号)="data">
-                    <div class="col-num">{{ 1000 + data.item.ID }}</div>
-                    </template>  
-                    
-                    <template #cell(题目标题)="data">
-                      <div class="col-title" @click="navigateToProblem(data.item.ID)">{{ data.item.title }}</div>
-                    </template>
-                    <template #cell(编辑题目)="data">
-                      <div class="col-edit" @click="navigateToEdit(data.item.ID)">编辑</div>
-                    </template>
-                    <template #cell(编辑测试点)="data">
-                        <div class="col-case" @click="navigateToCase(data.item.ID)">TestCase</div>
-                    </template>
-                    </b-table>
-                    <b-pagination
-                    align="center"
-                    v-model="currentPage"
-                    :total-rows="rows"
-                    :per-page="perPage"
-                    first-text="First"
-                    prev-text="Prev"
-                    next-text="Next"
-                    last-text="Last"
-                    ></b-pagination>
-                </div>
-            </b-card>
+  <div class="box">
+    <div class="problemList">
+      <b-card class="button">
+        <b-button
+          @click="$router.push('/admin/problem/add')"
+          variant="primary"
+        >添加问题</b-button>
+      </b-card>
+      <b-card>
+        <div class="overflow-auto">
+          <b-table
+            id="my-table"
+            striped
+            hover
+            :items="items"
+            :fields="fields"
+            :per-page="perPage"
+            :current-page="currentPage"
+          >
+            <template #cell(题目编号)="data">
+              <div class="col-num">{{ 1000 + data.item.ID }}</div>
+            </template>
+
+            <template #cell(题目标题)="data">
+              <div
+                class="col-title"
+                @click="navigateToProblem(data.item.ID)"
+              >{{ data.item.title }}</div>
+            </template>
+            <template #cell(编辑题目)="data">
+              <div
+                class="col-edit"
+                @click="navigateToEdit(data.item.ID)"
+              >编辑</div>
+            </template>
+            <template #cell(编辑测试点)="data">
+              <div
+                class="col-case"
+                @click="navigateToCase(data.item.ID)"
+              >TestCase</div>
+            </template>
+          </b-table>
+          <b-pagination
+            align="center"
+            v-model="currentPage"
+            :total-rows="rows"
+            :per-page="perPage"
+            first-text="First"
+            prev-text="Prev"
+            next-text="Next"
+            last-text="Last"
+          ></b-pagination>
         </div>
+      </b-card>
     </div>
+  </div>
 </template>
 <script>
 import { mapState, mapActions } from 'vuex';
@@ -62,19 +74,20 @@ export default {
       return this.items.length
     }
   },
-  created() {
-    this.fetchProblemList().then(() => {
-      // 在获取问题列表数据后，更新 data 数组
-      // this.data = this.problemList.data.data.data;
-      this.items = this.problemList.data.data.data;
-      this.items.reverse();
-    }).catch((error) => {
-      this.$bvToast.toast(error.response.data.msg, {
-          title: '数据验证错误',
-          variant: 'danger',
-          solid: true,
+  async created() {
+    try {
+        await this.fetchProblemList();
+        // 使用深拷贝避免直接修改 Vuex 状态
+        this.items = JSON.parse(JSON.stringify(this.problemList.data.data.data));
+        this.items.reverse();
+    } catch (error) {
+        console.log(error);
+        this.$bvToast.toast(error.response ? error.response.data.msg : '未知错误', {
+            title: '数据验证错误',
+            variant: 'danger',
+            solid: true,
         });
-    });
+    }
   },
   methods: {
     ...mapActions('problemModule', ['fetchProblemList']),
@@ -92,9 +105,9 @@ export default {
 </script>
 <style scoped>
 .box {
-    margin-left: 200px;
+  margin-left: 200px;
 }
-.problemList{
+.problemList {
   max-width: 1400px;
   margin: auto;
 }
@@ -103,30 +116,30 @@ export default {
   width: 60px; /* 设置题目编号列的宽度 */
   padding-left: 10px;
 }
-.col-title{
+.col-title {
   width: 250px;
   overflow: hidden;
   white-space: nowrap; /* 防止文本换行 */
 }
-.col-edit{
+.col-edit {
   width: 60px; /* 设置题目编号列的宽度 */
   color: #006eff;
-  cursor:pointer;
+  cursor: pointer;
 }
-.col-case{
+.col-case {
   width: 80px; /* 设置题目编号列的宽度 */
   color: #006eff;
-  cursor:pointer;
+  cursor: pointer;
 }
 .tag-a {
   text-decoration: none;
   color: white;
 }
-.col-title{
+.col-title {
   color: #006eff;
   cursor: pointer;
 }
-.button{
+.button {
   margin: 40px auto;
 }
 </style>

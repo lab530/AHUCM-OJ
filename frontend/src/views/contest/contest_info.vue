@@ -66,14 +66,14 @@ import { mapActions, mapState, mapMutations } from 'vuex'
 import CountdownTimer from '@/components/CountdownTimer.vue';
 import { formatDate} from '../../helper/getTime';
 export default {
-    components:{
-        CountdownTimer,
-    },
-    data() {
-        return {
-            contest:{},
-            password:'',
-        }
+  components:{
+    CountdownTimer,
+  },
+  data() {
+    return {
+        contest:{},
+        password:'',
+    }
   },
   methods:{
     ...mapActions('contestModule',['getContestInfo']),
@@ -81,104 +81,110 @@ export default {
     ...mapActions('contestModule',['VerityContest']),
     ...mapMutations('contestModule', ['setContestInfo']),
     formatDate,
-    GetContestInfo(){
-        this.getContestInfo().then((response) => {
-            this.contest = response.data.data.data;
-            // this.contest.start_at = formatDate(this.contest.start_at);
-            console.log(this.contest)
-            this.changeDateForm();
-            this.setContestInfo(response.data.data.data)
-        }).catch((error) => {
-        this.$bvToast.toast(error.response.data.msg, {
-            title: '数据验证错误',
-            variant: 'danger',
-            toaster:'b-toaster-bottom-right',
-            solid: true,
-            appendToast:true,
-            });
-        });
-    },
-    Detail(){
-        if(this.contest.public && this.contest.password == "False"){
-            const queryParams = window.location.search;
-            this.$router.push("/contestdetail" + queryParams);
-        } else {
-            if(this.userInfo){
-                let UserId = this.userInfo.id
-                this.VerityContest( UserId ).then((response) => {
-                    this.$bvToast.toast(response.data.msg, {
+    async GetContestInfo() {
+      try {
+          const response = await this.getContestInfo();
+          this.contest = response.data.data.data;
+          console.log(this.contest);
+          this.changeDateForm();
+          this.setContestInfo(response.data.data.data);
+      } catch (error) {
+          console.log(error);
+          this.$bvToast.toast(error.response ? error.response.data.msg : '未知错误', {
+              title: '数据验证错误',
+              variant: 'danger',
+              toaster: 'b-toaster-bottom-right',
+              solid: true,
+              appendToast: true,
+          });
+      }
+  },
+  async Detail() {
+    if (this.contest.public && this.contest.password == "False") {
+        const queryParams = window.location.search;
+        this.$router.push("/contestdetail" + queryParams);
+    } else {
+        if (this.userInfo) {
+            let UserId = this.userInfo.id;
+            try {
+                const response = await this.VerityContest(UserId);
+                this.$bvToast.toast(response.data.msg, {
                     title: '数据验证成功',
                     variant: 'success',
-                    toaster:'b-toaster-bottom-right',
+                    toaster: 'b-toaster-bottom-right',
                     solid: true,
-                    appendToast:true,
-                    });
-                    const queryParams = window.location.search;
-                    setTimeout(() => {
-                        this.$router.push("/contestdetail" + queryParams);
-                    }, 500)
-                }).catch((error) => {
-                this.$bvToast.toast(error.response.data.msg, {
+                    appendToast: true,
+                });
+                const queryParams = window.location.search;
+                setTimeout(() => {
+                    this.$router.push("/contestdetail" + queryParams);
+                }, 500);
+            } catch (error) {
+                this.$bvToast.toast(error.response ? error.response.data.msg : '未知错误', {
                     title: '数据验证错误',
                     variant: 'danger',
-                    toaster:'b-toaster-bottom-right',
+                    toaster: 'b-toaster-bottom-right',
                     solid: true,
-                    appendToast:true,
-                    });
-                });
-            } else {
-                this.$bvToast.toast("游客仅提供输入密码的方式查看", {
-                title: '错误',
-                variant: 'danger',
-                toaster:'b-toaster-bottom-right',
-                solid: true,
-                appendToast:true,
+                    appendToast: true,
                 });
             }
+        } else {
+            this.$bvToast.toast("游客仅提供输入密码的方式查看", {
+                title: '错误',
+                variant: 'danger',
+                toaster: 'b-toaster-bottom-right',
+                solid: true,
+                appendToast: true,
+            });
         }
-    },
-    RankList(){
-        const queryParams = window.location.search;
-        this.$router.push("/contestrank" + queryParams);
-    },
-    SubmitPassword(){
-        let UserId = -1, ContestPassword = this.password;
-        if(this.userInfo){
-            UserId = this.userInfo.id
-        }
-        this.SubmitContestPassword( { UserId, ContestPassword }).then((response) => {
-            this.$bvToast.toast(response.data.msg, {
+    }
+  },
+  RankList(){
+      const queryParams = window.location.search;
+      this.$router.push("/contestrank" + queryParams);
+  },
+  async SubmitPassword() {
+    let UserId = -1, ContestPassword = this.password;
+    if (this.userInfo) {
+        UserId = this.userInfo.id;
+    }
+
+    try {
+        const response = await this.SubmitContestPassword({ UserId, ContestPassword });
+        this.$bvToast.toast(response.data.msg, {
             title: '数据验证成功',
             variant: 'success',
-            toaster:'b-toaster-bottom-right',
+            toaster: 'b-toaster-bottom-right',
             solid: true,
-            appendToast:true,
-            });
-            const queryParams = window.location.search;
-            setTimeout(() => {
-                    this.$router.push("/contestdetail" + queryParams);
-                }, 500)
-        }).catch((error) => {
-        this.$bvToast.toast(error.response.data.msg, {
+            appendToast: true,
+        });
+
+        const queryParams = window.location.search;
+        setTimeout(() => {
+            this.$router.push("/contestdetail" + queryParams);
+        }, 500);
+    } catch (error) {
+        console.log(error);
+        this.$bvToast.toast(error.response ? error.response.data.msg : '未知错误', {
             title: '数据验证错误',
             variant: 'danger',
-            toaster:'b-toaster-bottom-right',
+            toaster: 'b-toaster-bottom-right',
             solid: true,
-            appendToast:true,
-            });
+            appendToast: true,
         });
-    },
-    changeDateForm(){
-        const dateString = this.contest.start_at;
-        // 进行后续的日期处理和分割操作
-        const parts = dateString.split('T');
-        const datePart = parts[0];
-        const timePart = parts[1].split('+')[0];
-        const [year, month, day] = datePart.split('-');
-        const [hours, minutes, seconds] = timePart.split(':');
-        const targetDate = new Date(year, month - 1, day, hours, minutes, seconds);
-        this.contest.start_at = targetDate.toString();
     }
+  },
+  changeDateForm(){
+      const dateString = this.contest.start_at;
+      // 进行后续的日期处理和分割操作
+      const parts = dateString.split('T');
+      const datePart = parts[0];
+      const timePart = parts[1].split('+')[0];
+      const [year, month, day] = datePart.split('-');
+      const [hours, minutes, seconds] = timePart.split(':');
+      const targetDate = new Date(year, month - 1, day, hours, minutes, seconds);
+      this.contest.start_at = targetDate.toString();
+  }
   },
   created(){
     this.GetContestInfo();

@@ -62,37 +62,37 @@
 
         </div>
       </div>
-        <div class="bgc">
-            <b-table
-            id="ranking-table"
-            :items="rankingData"
-            :fields="fields"
-            striped
-            responsive
-            hover
-            class="text-center"
-            head-variant="dark"
-            body-class="cell-content"
-            :style="{
+      <div class="bgc">
+        <b-table
+          id="ranking-table"
+          :items="rankingData"
+          :fields="fields"
+          striped
+          responsive
+          hover
+          class="text-center"
+          head-variant="dark"
+          body-class="cell-content"
+          :style="{
                 '--bs-table-height': '60px'
             }"
-            >
-            <template #cell(rank)="data">
-                {{ data.index + 1 }}
-            </template>
-            <template #cell(item)="data">
+        >
+          <template #cell(rank)="data">
+            {{ data.index + 1 }}
+          </template>
+          <template #cell(item)="data">
             <div class="cell-content">
-                <div class="main-text">
+              <div class="main-text">
                 <span>{{ data.field.key }}</span>
-                </div>
-                <div class="sub-text">
+              </div>
+              <div class="sub-text">
                 <span v-if="data.value == '+'">+1</span>
                 <span v-else>-</span>
-                </div>
+              </div>
             </div>
-            </template>
-            </b-table>
-        </div>
+          </template>
+        </b-table>
+      </div>
     </b-card>
   </div>
 </template>
@@ -199,38 +199,40 @@ export default {
             window.open("/problem?pid=" + pid);
         }
     },
-    getContestRank(){
-        this.GetRankInfo().then((response) => {
-            
-            console.log(response.data.data.data)
-            this.data = response.data.data.data;
-            this.processedData(this.data);
-        }).catch((error) => {
-        this.$bvToast.toast(error.response.data.msg, {
-            title: '数据验证错误',
-            variant: 'danger',
-            toaster:'b-toaster-bottom-right',
-            solid: true,
-            appendToast:true,
-            });
-        });
+    async getContestRank() {
+      try {
+          const response = await this.GetRankInfo();
+          console.log(response.data.data.data);
+          this.data = response.data.data.data;
+          this.processedData(this.data);
+      } catch (error) {
+          console.log(error);
+          this.$bvToast.toast(error.response ? error.response.data.msg : '未知错误', {
+              title: '数据验证错误',
+              variant: 'danger',
+              toaster: 'b-toaster-bottom-right',
+              solid: true,
+              appendToast: true,
+          });
+      }
     },
-    getInfo() {
-        this.getContestInfo().then((response) => {
-            this.contest = response.data.data.data;
-            // this.contest.start_at = formatDate(this.contest.start_at);
-            this.setContestInfo(response.data.data.data)
-
-        }).catch((error) => {
-        this.$bvToast.toast(error.response.data.msg, {
-            title: '数据验证错误',
-            variant: 'danger',
-            toaster:'b-toaster-bottom-right',
-            solid: true,
-            appendToast:true,
-            });
-        });
-    },
+    async getInfo() {
+      try {
+          const response = await this.getContestInfo();
+          this.contest = response.data.data.data;
+          // this.contest.start_at = formatDate(this.contest.start_at);
+          this.setContestInfo(response.data.data.data);
+      } catch (error) {
+          console.log(error);
+          this.$bvToast.toast(error.response ? error.response.data.msg : '未知错误', {
+              title: '数据验证错误',
+              variant: 'danger',
+              toaster: 'b-toaster-bottom-right',
+              solid: true,
+              appendToast: true,
+          });
+      }
+  },
     formatTime(seconds) {  
         // 将秒转换为分钟和秒  
         const minutes = Math.floor(seconds / 60);  
@@ -267,31 +269,31 @@ export default {
     });
     },
   },
-  created(){
-    this.GetContestProblem().then((response) => {
-      console.log(response)
+  async created() {
+    try {
+        const response = await this.GetContestProblem();
+        console.log(response);
         this.problemList = response.data.data.data;
-        console.log(this.problemList)
+        console.log(this.problemList);
         this.generateProblemLettersMap();
-        // this.contest.start_at = formatDate(this.contest.start_at);
-        // this.generateProblemLettersMap();
+
         this.contest = this.contestInfo;
-        // console.log(this.problemLettersMap['A']); // 输出 ID
-        // console.log(this.problemLettersMap['B']); // 输出 ID
+
         if (Object.keys(this.contest).length === 0) {
             // contest 为空对象
-            this.getInfo();
+            await this.getInfo();
         }
-        this.getContestRank();
-    }).catch((error) => {
-    this.$bvToast.toast(error.response.data.msg, {
-        title: '数据验证错误',
-        variant: 'danger',
-        toaster:'b-toaster-bottom-right',
-        solid: true,
-        appendToast:true,
+        await this.getContestRank();
+    } catch (error) {
+        console.log(error);
+        this.$bvToast.toast(error.response ? error.response.data.msg : '未知错误', {
+            title: '数据验证错误',
+            variant: 'danger',
+            toaster: 'b-toaster-bottom-right',
+            solid: true,
+            appendToast: true,
         });
-    });
+    }
   },
   computed:{
     ...mapState('userModule', {
@@ -384,9 +386,9 @@ export default {
   line-height: 1;
 }
 
-.bgc{
-    background-image: url("../../../public/bg.png");
-    background-repeat: repeat;
-    background-size: 150px 150px;
+.bgc {
+  background-image: url("../../../public/bg.png");
+  background-repeat: repeat;
+  background-size: 150px 150px;
 }
 </style>

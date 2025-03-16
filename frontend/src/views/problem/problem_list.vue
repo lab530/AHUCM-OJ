@@ -1,41 +1,53 @@
 <template>
   <div class="problemlist">
-      <b-card>
-          <div class="overflow-auto" v-if="this.items">
-              <b-table
-              id="my-table"
-              striped hover 
-              :items="items"
-              :fields="fields"
-              :per-page="perPage"
-              :current-page="currentPage"
-              >
-              <template #cell(题目编号)="data">
-                <div class="col-num">{{ 1000 + data.item.ID }}</div>
-              </template>  
-              
-              <template #cell(标题)="data">
-                <div class="col-title" @click="navigateToProblem(data.item.ID)">{{ data.item.title }}</div>
-              </template>
-              <template #cell(分类)="data">
-                <b-tag variant="primary" v-for="category in data.item.ProblemCategories"  :key="category.ID" no-remove>
-                  <div  @click="navigateToProblemList(category.Category.ID)"> {{ category.Category['category_name'] }}</div>
-                </b-tag>
-              </template>
-              </b-table>
-              <b-pagination
-              align="center"
-              v-model="currentPage"
-              :total-rows="rows"
-              :per-page="perPage"
-              first-text="First"
-              prev-text="Prev"
-              next-text="Next"
-              last-text="Last"
-              ></b-pagination>
-          </div>
-          <div v-else> 暂无数据 </div>
-      </b-card>
+    <b-card>
+      <div
+        class="overflow-auto"
+        v-if="this.items"
+      >
+        <b-table
+          id="my-table"
+          striped
+          hover
+          :items="items"
+          :fields="fields"
+          :per-page="perPage"
+          :current-page="currentPage"
+        >
+          <template #cell(题目编号)="data">
+            <div class="col-num">{{ 1000 + data.item.ID }}</div>
+          </template>
+
+          <template #cell(标题)="data">
+            <div
+              class="col-title"
+              @click="navigateToProblem(data.item.ID)"
+            >{{ data.item.title }}</div>
+          </template>
+          <template #cell(分类)="data">
+            <b-tag
+              variant="primary"
+              v-for="category in data.item.ProblemCategories"
+              :key="category.ID"
+              no-remove
+            >
+              <div @click="navigateToProblemList(category.Category.ID)"> {{ category.Category['category_name'] }}</div>
+            </b-tag>
+          </template>
+        </b-table>
+        <b-pagination
+          align="center"
+          v-model="currentPage"
+          :total-rows="rows"
+          :per-page="perPage"
+          first-text="First"
+          prev-text="Prev"
+          next-text="Next"
+          last-text="Last"
+        ></b-pagination>
+      </div>
+      <div v-else> 暂无数据 </div>
+    </b-card>
   </div>
 </template>
 <script>
@@ -59,17 +71,21 @@ computed: {
 watch: {
   '$route': {
     immediate: true,
-    handler() {
-      this.fetchProblemList().then(() => {
+    async handler() {
+      try {
+        // 获取问题列表
+        await this.fetchProblemList();
+        // 更新 items 数组
         this.items = this.problemList.data.data.data;
-        console.log(this.problemList.data.data.data)
-      }).catch((error) => {
-        this.$bvToast.toast(error.response.data.msg, {
+        console.log(this.problemList.data.data.data);
+      } catch (error) {
+        console.log(error);
+        this.$bvToast.toast(error.response ? error.response.data.msg : '未知错误', {
           title: '数据验证错误',
           variant: 'danger',
           solid: true,
         });
-      });
+      }
     }
   }
 },
@@ -92,7 +108,7 @@ methods: {
 }
 </script>
 <style scoped>
-.problemlist{
+.problemlist {
   width: 70%;
   margin: auto;
 }
@@ -111,7 +127,7 @@ methods: {
   color: #006eff;
   cursor: pointer;
 }
-.tag{
+.tag {
   cursor: pointer;
 }
 </style>
